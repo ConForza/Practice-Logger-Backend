@@ -1,0 +1,49 @@
+from fastapi import HTTPException
+
+from core.jwt import create_access_token
+from repositories.user_repository import UserRepository
+from schemas.auth import CreateUserRequest, User, UserLoginRequest
+from core.security import hash_password, verify_password
+
+
+class UserService:
+    def __init__(self, user_repo: UserRepository):
+        self.user_repo = user_repo
+
+    def create_user(self, body: CreateUserRequest):
+        if self.user_repo.get_user_by_email(body.email) is not None:
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        user = User(
+            email=body.email,
+            password=hash_password(body.password),
+            is_active=True,
+        )
+
+        user_response = self.user_repo.create_user(user)
+
+        return user_response
+
+    def login_user(self, body: UserLoginRequest):
+
+        user = self.user_repo.get_user_by_email(body.email)
+
+        if user is None:
+            raise HTTPException(status_code=401, detail="Invalid email entered")
+
+        if not verify_password(body.password, user.password):
+            raise HTTPException(status_code=401, detail="Invalid password entered")
+
+        token = create_access_token(
+            data={
+                "sub": user.email,
+                "is_active": user.is_active,
+                "user_id": user.id,
+            }
+        )
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+        }
+
+
