@@ -306,3 +306,6 @@ http-client.private.env.json
 
 # SQLite databases
 *.db
+
+# macOS
+.DS_Store
