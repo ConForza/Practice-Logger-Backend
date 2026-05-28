@@ -18,6 +18,7 @@ class UserService:
             email=body.email,
             password=hash_password(body.password),
             is_active=True,
+            role="student",
         )
 
         user_response = self.user_repo.create_user(user)
@@ -39,6 +40,7 @@ class UserService:
                 "sub": user.email,
                 "is_active": user.is_active,
                 "user_id": user.id,
+                "role": user.role,
             }
         )
         return {

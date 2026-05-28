@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, status
+from typing import Annotated
 from fastapi.security import OAuth2PasswordRequestForm
 
 from services.user_service import UserService
 from core.deps import get_user_service
+from core.auth import get_current_user
 from schemas.auth import UserResponse, CreateUserRequest, TokenResponse, UserLoginRequest
 
 router = APIRouter(tags=["Auth"])
@@ -35,3 +37,14 @@ async def login_user(
         password=form_data.password,
     )
     return service.login_user(body)
+
+@router.get(
+    "/auth/me",
+    response_model=UserResponse,
+    summary="Get current user",
+    description="Returns the currently authenticated user.",
+)
+async def get_me(
+    user: Annotated[dict, Depends(get_current_user)],
+):
+    return user

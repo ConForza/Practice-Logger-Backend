@@ -14,6 +14,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     email = payload.get("sub")
     user_id = payload.get("user_id")
     is_active = payload.get("is_active")
+    role = payload.get("role")
 
     if email is None or user_id is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
@@ -25,4 +26,5 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         email=email,
         id=user_id,
         is_active=is_active,
+        role=role
     )

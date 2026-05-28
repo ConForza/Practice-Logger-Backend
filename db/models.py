@@ -7,6 +7,7 @@ class UserDB(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    role = Column(String, default="student", nullable=False)
 
 class TaskDB(Base):
     __tablename__ = "tasks"

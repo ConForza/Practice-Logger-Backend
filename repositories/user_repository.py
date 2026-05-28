@@ -22,6 +22,7 @@ class UserRepository:
             email=row.email,
             password=row.hashed_password,
             is_active=row.is_active,
+            role=row.role,
         )
 
     def create_user(self, user: User):
@@ -29,6 +30,7 @@ class UserRepository:
             email=user.email,
             hashed_password=user.password,
             is_active=user.is_active,
+            role="student",
         )
         self.db.add(db_user)
         self.db.commit()
@@ -38,4 +40,5 @@ class UserRepository:
             id=db_user.id,
             email=db_user.email,
             is_active=db_user.is_active,
+            role=db_user.role,
         )
