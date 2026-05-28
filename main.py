@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from db.database import engine
 from db import models
-from routers.v1 import tasks, sessions, auth
+from routers.v1 import tasks, sessions, auth, role_test
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -24,3 +24,4 @@ app.add_middleware(
 app.include_router(tasks.router, prefix=router_prefix)
 app.include_router(sessions.router, prefix=router_prefix)
 app.include_router(auth.router, prefix=router_prefix)
+app.include_router(role_test.router, prefix=router_prefix)

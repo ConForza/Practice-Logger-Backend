@@ -38,7 +38,6 @@ async def require_teacher(current_user: UserResponse = Depends(get_current_user)
 
     return current_user
 
-
 async def require_admin(current_user: UserResponse = Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(
