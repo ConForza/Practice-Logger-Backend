@@ -28,3 +28,22 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         is_active=is_active,
         role=role
     )
+
+async def require_teacher(current_user: UserResponse = Depends(get_current_user)):
+    if current_user.role not in ["teacher", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Teacher access required",
+        )
+
+    return current_user
+
+
+async def require_admin(current_user: UserResponse = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+    return current_user
