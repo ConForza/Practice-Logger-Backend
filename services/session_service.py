@@ -15,23 +15,36 @@ class SessionService:
         return int((end_time - start_time).total_seconds() // 60)
 
     def start_session(self, task, user):
-        if self.session_repo.get_session_by_task_id(task.id) is not None:
+        if task.status == "completed":
+            raise HTTPException(status_code=400, detail="Cannot start a completed task.")
+
+        if task.status == "in progress":
             raise HTTPException(status_code=400, detail="Session already started for this task.")
+
         if self.session_repo.get_active_session(user) is not None:
             raise HTTPException(status_code=400, detail="Session is already in progress.")
+
         self.task_repo.update_task_status(task.id, status="in progress")
         return self.session_repo.start_session(task)
 
     def end_session(self, task, notes: str | None = None):
         if task.status == "completed":
             raise HTTPException(status_code=400, detail="Task already completed")
+
         session = self.session_repo.get_session_by_task_id(task.id)
         if session is None:
             raise HTTPException(status_code=404, detail="Session not found")
+
         duration = self.calculate_session_duration(session.timestamp)
-        if duration == 0:
-            raise HTTPException(status_code=404, detail="Session too short. Needs to be at least 1 minute.")
+
+        if duration < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Practice session must last at least 1 minute.",
+            )
+
         self.task_repo.update_task_status(task.id, status="completed")
+
         return self.session_repo.end_session(task, duration, notes)
 
     def get_session_by_task_id(self, session_id):
