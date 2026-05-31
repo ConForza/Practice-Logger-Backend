@@ -6,7 +6,7 @@ This API supports user authentication, practice task management, practice sessio
 
 It is designed to work with the React frontend:
 
-[Practice Logger UI](https://github.com/ConForza/Practice-Logger-UI)
+[Practice Logger UI] (https://github.com/ConForza/Practice-Logger-UI)
 
 ## Current features
 
