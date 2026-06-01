@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from db.database import engine
 from db import models
-from routers.v1 import tasks, sessions, auth, teacher
+from routers.v1 import tasks, sessions, auth, teacher, admin
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -25,3 +25,4 @@ app.include_router(tasks.router, prefix=router_prefix)
 app.include_router(sessions.router, prefix=router_prefix)
 app.include_router(auth.router, prefix=router_prefix)
 app.include_router(teacher.router, prefix=router_prefix)
+app.include_router(admin.router, prefix=router_prefix)
