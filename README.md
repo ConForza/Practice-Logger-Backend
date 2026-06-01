@@ -22,6 +22,7 @@ It is designed to work with the React frontend:
 - Teacher/admin role-check dependencies
 - Protected teacher/admin test routes
 - Validation to prevent deleting tasks with active sessions
+- Teacher endpoint for listing student users
 
 ## Tech stack
 
@@ -102,11 +103,17 @@ GET  /api/v1/sessions
 GET  /api/v1/sessions/active
 ```
 
-### Role test routes
+### Teacher
 
 ```txt
-GET /api/v1/teacher/dashboard
-GET /api/v1/admin/dashboard
+GET /api/v1/teacher/status
+GET /api/v1/teacher/students
+```
+
+### Admin
+
+```txt
+GET /api/v1/admin/status
 ```
 
 ## Project status
@@ -115,7 +122,6 @@ The student-facing API is functional. Teacher and admin role infrastructure has 
 
 ## Planned improvements
 
-- Teacher student list endpoint
 - Teacher view of student practice history
 - Teacher task assignment
 - Admin user management
