@@ -42,3 +42,11 @@ class UserRepository:
             is_active=db_user.is_active,
             role=db_user.role,
         )
+
+    def get_students(self):
+        return (
+            self.db.query(UserDB)
+            .filter(UserDB.role == "student")
+            .order_by(UserDB.email)
+            .all()
+        )
