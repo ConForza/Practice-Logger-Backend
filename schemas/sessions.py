@@ -31,3 +31,9 @@ class EndSessionResponse(BaseModel):
     notes: str | None = None
     status: str = "completed"
 
+class PracticeSession(BaseModel):
+    id: int
+    duration: int
+    notes: str | None = None
+    start_time: datetime
+    task_id: int

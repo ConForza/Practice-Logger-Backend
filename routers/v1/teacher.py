@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from core.auth import require_teacher
 from core.deps import get_teacher_service
 from schemas.auth import UserResponse
-from schemas.sessions import EndSessionResponse
+from schemas.sessions import PracticeSession
 from services.teacher_service import TeacherService
 
 router = APIRouter(
@@ -30,7 +30,7 @@ async def get_teacher_students(
 
 @router.get(
     "/students/{student_id}/sessions",
-    response_model=list[EndSessionResponse],
+    response_model=list[PracticeSession],
 )
 async def get_student_sessions_for_teacher(
     student_id: int,

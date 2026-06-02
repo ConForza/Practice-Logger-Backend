@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from db.models import SessionDB, TaskDB
 from datetime import datetime
 
-from schemas.sessions import StartSessionResponse, EndSessionResponse
+from schemas.sessions import StartSessionResponse, EndSessionResponse, PracticeSession
 
 
 class SessionRepository:
@@ -117,10 +117,25 @@ class SessionRepository:
         return sessions
 
     def get_sessions_by_user_id(self, user_id: int):
-        return (
-            self.db.query(SessionDB)
-            .join(TaskDB, SessionDB.task_id == TaskDB.id)
+        sessions = []
+
+        query = self.db.query(SessionDB)
+        rows = (
+            query.join(TaskDB, SessionDB.task_id == TaskDB.id)
             .filter(TaskDB.user_id == user_id)
             .order_by(SessionDB.timestamp.desc())
             .all()
         )
+
+        for row in rows:
+            sessions.append(
+                PracticeSession(
+                    id=row.id,
+                    duration=row.duration,
+                    notes=row.notes,
+                    start_time=row.timestamp,
+                    task_id=row.task_id,
+                )
+            )
+
+        return sessions
