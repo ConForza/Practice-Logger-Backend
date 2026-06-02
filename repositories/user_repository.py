@@ -50,3 +50,6 @@ class UserRepository:
             .order_by(UserDB.email)
             .all()
         )
+
+    def get_user_by_id(self, user_id: int):
+        return self.db.query(UserDB).filter(UserDB.id == user_id).first()

@@ -115,3 +115,12 @@ class SessionRepository:
                 )
             )
         return sessions
+
+    def get_sessions_by_user_id(self, user_id: int):
+        return (
+            self.db.query(SessionDB)
+            .join(TaskDB, SessionDB.task_id == TaskDB.id)
+            .filter(TaskDB.user_id == user_id)
+            .order_by(SessionDB.timestamp.desc())
+            .all()
+        )
