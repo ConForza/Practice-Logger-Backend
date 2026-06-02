@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from core.auth import require_teacher
 from schemas.auth import UserResponse
+from schemas.sessions import EndSessionResponse
 from sqlalchemy.orm import Session
 from core.deps import get_db
 from repositories.user_repository import UserRepository
@@ -30,3 +31,14 @@ async def get_teacher_students(
     user_repo = UserRepository(db)
     teacher_service = TeacherService(user_repo)
     return teacher_service.get_students()
+
+@router.get(
+    "/students/{student_id}/sessions",
+    response_model=list[EndSessionResponse],
+)
+async def get_student_sessions_for_teacher(
+    student_id: int,
+    current_user: UserResponse = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    return []
