@@ -4,6 +4,7 @@ from core.auth import require_teacher
 from core.deps import get_teacher_service
 from schemas.auth import UserResponse
 from schemas.sessions import PracticeSession
+from schemas.tasks import TaskResponse, TaskRequest
 from services.teacher_service import TeacherService
 
 router = APIRouter(
@@ -38,3 +39,15 @@ async def get_student_sessions_for_teacher(
     teacher_service: TeacherService = Depends(get_teacher_service),
 ):
     return teacher_service.get_student_sessions(student_id)
+
+@router.post(
+    "/students/{student_id}/tasks",
+    response_model=TaskResponse,
+)
+async def assign_task_to_student(
+    student_id: int,
+    task_data: TaskRequest,
+    current_user: UserResponse = Depends(require_teacher),
+    teacher_service: TeacherService = Depends(get_teacher_service),
+):
+    return teacher_service.assign_task_to_student(task_data, student_id)

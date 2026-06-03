@@ -18,7 +18,7 @@ async def get_all_tasks(
     user: Annotated[dict, Depends(get_current_user)],
     service: TaskService = Depends(get_task_service)
 ):
-    return service.get_all_tasks(user)
+    return service.get_all_tasks(user.id)
 
 @router.post(
     "/tasks",
@@ -31,7 +31,7 @@ async def create_task(
     user: Annotated[dict, Depends(get_current_user)],
     service: TaskService = Depends(get_task_service)
 ):
-    return service.create_task(task, user)
+    return service.create_task(task, user.id)
 
 @router.put(
     "/tasks/{task_id}",
@@ -45,7 +45,7 @@ async def update_task(
     body: TaskRequest,
     service: TaskService = Depends(get_task_service)
 ):
-    return service.update_task(task_id, user, body)
+    return service.update_task(task_id, user.id, body)
 
 @router.delete(
     "/tasks/{task_id}",
@@ -58,4 +58,4 @@ async def delete_task(
     user: Annotated[dict, Depends(get_current_user)],
     service: TaskService = Depends(get_task_service)
 ):
-    service.delete_task(task_id, user)
+    service.delete_task(task_id, user.id)

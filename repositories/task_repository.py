@@ -9,10 +9,10 @@ class TaskRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_all_tasks(self, user) -> list[TaskResponse]:
+    def get_all_tasks(self, user_id: int) -> list[TaskResponse]:
         tasks = []
         query = self.db.query(TaskDB)
-        rows = query.filter(TaskDB.user_id == user.id).all()
+        rows = query.filter(TaskDB.user_id == user_id).all()
         for row in rows:
             tasks.append(
                 TaskResponse(
@@ -25,11 +25,11 @@ class TaskRepository:
             )
         return tasks
 
-    def update_task(self, task_id, user, task_request):
+    def update_task(self, task_id: int, user_id: int, task_request):
         row = (
             self.db.query(TaskDB)
             .filter(TaskDB.id == task_id)
-            .filter(TaskDB.user_id == user.id)
+            .filter(TaskDB.user_id == user_id)
             .first()
         )
         if row:
@@ -48,11 +48,11 @@ class TaskRepository:
             )
         return None
 
-    def delete_task(self, task_id, user):
+    def delete_task(self, task_id: int, user_id: int):
         row = (
             self.db.query(TaskDB)
             .filter(TaskDB.id == task_id)
-            .filter(TaskDB.user_id == user.id)
+            .filter(TaskDB.user_id == user_id)
             .first()
         )
         if row:
@@ -61,11 +61,11 @@ class TaskRepository:
             return row.id
         return None
 
-    def get_task_by_id(self, task_id, user):
+    def get_task_by_id(self, task_id: int, user_id: int):
         row = (
             self.db.query(TaskDB)
             .filter(TaskDB.id == task_id)
-            .filter(TaskDB.user_id == user.id)
+            .filter(TaskDB.user_id == user_id)
             .first()
         )
         if not row:
@@ -78,12 +78,12 @@ class TaskRepository:
             user_id=row.user_id,
         )
 
-    def create_task(self, body, user):
+    def create_task(self, body, user_id: int):
         db_task = TaskDB(
             title=body.title,
             description=body.description,
             status="pending",
-            user_id=user.id,
+            user_id=user_id,
         )
         self.db.add(db_task)
         self.db.commit()
@@ -97,7 +97,7 @@ class TaskRepository:
             user_id=db_task.user_id,
         )
 
-    def update_task_status(self, task_id, status: str):
+    def update_task_status(self, task_id: int, status: str):
         row = (
             self.db.query(TaskDB)
             .filter(TaskDB.id == task_id)
