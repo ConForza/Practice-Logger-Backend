@@ -6,23 +6,26 @@ This API supports user authentication, practice task management, practice sessio
 
 It is designed to work with the React frontend:
 
-[Practice Logger UI] (https://github.com/ConForza/Practice-Logger-UI)
+[Practice Logger UI](https://github.com/ConForza/Practice-Logger-UI)
 
 ## Current features
 
 - User registration
 - User login with JWT authentication
 - Current user endpoint via `/auth/me`
-- Protected routes
-- Task CRUD
+- Protected student routes
+- Task CRUD for student users
 - Start and end practice sessions
 - Active practice session lookup
 - Session history
 - Role-aware user state
 - Teacher/admin role-check dependencies
 - Protected teacher/admin test routes
-- Validation to prevent deleting tasks with active sessions
 - Teacher endpoint for listing student users
+- Teacher endpoint for viewing selected student practice sessions
+- Teacher endpoint for assigning tasks to students
+- Admin status route
+- Validation to prevent deleting tasks with active sessions
 
 ## Tech stack
 
@@ -106,8 +109,10 @@ GET  /api/v1/sessions/active
 ### Teacher
 
 ```txt
-GET /api/v1/teacher/status
-GET /api/v1/teacher/students
+GET  /api/v1/teacher/status
+GET  /api/v1/teacher/students
+GET  /api/v1/teacher/students/{student_id}/sessions
+POST /api/v1/teacher/students/{student_id}/tasks
 ```
 
 ### Admin
@@ -118,14 +123,14 @@ GET /api/v1/admin/status
 
 ## Project status
 
-The student-facing API is functional. Teacher and admin role infrastructure has been added, but full teacher/admin features are still planned.
+The student-facing API is functional. Teacher mode now supports listing students, viewing selected student practice sessions, and assigning tasks to students. Admin mode currently has protected route infrastructure, with user-management features planned next.
 
 ## Planned improvements
 
-- Teacher view of student practice history
-- Teacher task assignment
 - Admin user management
 - Role management
+- User activation/deactivation
+- Teacher assignment overview
 - PostgreSQL support
 - Alembic migrations
 - Expanded automated tests
