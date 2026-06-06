@@ -9,6 +9,7 @@ from services.session_service import SessionService
 from services.task_service import TaskService
 from services.teacher_service import TeacherService
 from services.user_service import UserService
+from services.admin_service import AdminService
 
 
 def get_db():
@@ -48,3 +49,8 @@ def get_teacher_service(
     task_repo: TaskRepository = Depends(get_task_repository)
 ):
     return TeacherService(user_repo, session_repo, task_repo)
+
+def get_admin_service(
+    user_repo: UserRepository = Depends(get_user_repository),
+):
+    return AdminService(user_repo)
