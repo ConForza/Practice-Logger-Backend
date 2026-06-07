@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from typing import Literal
 
 class CreateUserRequest(BaseModel):
     email: EmailStr
@@ -30,3 +31,6 @@ class UserDBResponse(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
+
+class UserRoleUpdate(BaseModel):
+    role: Literal["student", "teacher", "admin"]
