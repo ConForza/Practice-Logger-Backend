@@ -34,3 +34,6 @@ class TokenResponse(BaseModel):
 
 class UserRoleUpdate(BaseModel):
     role: Literal["student", "teacher", "admin"]
+
+class UserStatusUpdate(BaseModel):
+    is_active: bool
