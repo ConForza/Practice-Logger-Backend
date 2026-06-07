@@ -73,3 +73,16 @@ class UserRepository:
         self.db.refresh(user)
 
         return user
+
+    def update_user_status(self, user_id: int, is_active: bool):
+        user = self.get_user_by_id(user_id)
+
+        if user is None:
+            return None
+
+        user.is_active = is_active
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        return user

@@ -19,3 +19,14 @@ class AdminService:
             )
 
         return user
+
+    def update_user_status(self, user_id: int, is_active: bool):
+        user = self.user_repo.update_user_status(user_id, is_active)
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        return user
