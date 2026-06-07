@@ -60,3 +60,16 @@ class UserRepository:
             .order_by(UserDB.email)
             .all()
         )
+
+    def update_user_role(self, user_id: int, role: str):
+        user = self.get_user_by_id(user_id)
+
+        if user is None:
+            return None
+
+        user.role = role
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        return user
