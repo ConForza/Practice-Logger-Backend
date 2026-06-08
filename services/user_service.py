@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from core.jwt import create_access_token
 from repositories.user_repository import UserRepository
@@ -29,11 +29,20 @@ class UserService:
 
         user = self.user_repo.get_user_by_email(body.email)
 
-        if user is None:
-            raise HTTPException(status_code=401, detail="Invalid email entered")
+        if user is None or not verify_password(body.password, user.password):
+            raise HTTPException(
 
-        if not verify_password(body.password, user.password):
-            raise HTTPException(status_code=401, detail="Invalid password entered")
+                status_code=status.HTTP_401_UNAUTHORIZED,
+
+                detail="Incorrect email or password",
+
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=403,
+                detail="Account is inactive",
+            )
 
         token = create_access_token(
             data={
