@@ -42,7 +42,7 @@ async def start_session(
     task_service: TaskService = Depends(get_task_service),
     session_service: SessionService = Depends(get_session_service),
 ):
-    task = task_service.get_task_by_id(task_id, user)
+    task = task_service.get_task_by_id(task_id, user.id)
     return session_service.start_session(task, user)
 
 @router.post(
@@ -60,7 +60,7 @@ async def end_session(
     task_service: TaskService = Depends(get_task_service),
     session_repo: SessionRepository = Depends(get_session_repository),
 ):
-    task = task_service.get_task_by_id(task_id, user)
+    task = task_service.get_task_by_id(task_id, user.id)
     background_tasks.add_task(calculate_streak, user, session_repo)
     return session_service.end_session(task, body.notes)
 

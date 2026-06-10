@@ -5,6 +5,7 @@ from core.deps import get_teacher_service
 from schemas.auth import UserResponse
 from schemas.sessions import PracticeSession
 from schemas.tasks import TaskResponse, TaskRequest
+from schemas.teacher import WeeklyStudentProgress
 from services.teacher_service import TeacherService
 
 router = APIRouter(
@@ -51,3 +52,13 @@ async def assign_task_to_student(
     teacher_service: TeacherService = Depends(get_teacher_service),
 ):
     return teacher_service.assign_task_to_student(task_data, student_id)
+
+@router.get(
+    "/progress/weekly",
+    response_model=list[WeeklyStudentProgress],
+)
+async def get_weekly_student_progress(
+    current_user: UserResponse = Depends(require_teacher),
+    teacher_service: TeacherService = Depends(get_teacher_service),
+):
+    return teacher_service.get_weekly_student_progress()
