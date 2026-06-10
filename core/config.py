@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     jwt_secret_key: str
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 10080
     cors_origins: str = "http://localhost:5173"
     database_url: str = "sqlite:///./practicelogger.db"
 
