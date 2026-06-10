@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from core.config import settings
 
-EXPIRES_IN_MINUTES = 30
+EXPIRES_IN_MINUTES = settings.access_token_expire_minutes
 JWT_SECRET_KEY = settings.jwt_secret_key
 ALGORITHM = settings.algorithm
 
