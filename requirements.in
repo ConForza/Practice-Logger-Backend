@@ -2,3 +2,5 @@ fastapi[standard]
 sqlalchemy
 pwdlib[argon2]
 pyjwt
+pydantic-settings
+python-dotenv

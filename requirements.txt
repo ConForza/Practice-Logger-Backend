@@ -87,13 +87,16 @@ pydantic-core==2.46.2
 pydantic-extra-types==2.11.1
     # via fastapi
 pydantic-settings==2.13.1
-    # via fastapi
+    # via
+    #   -r requirements.in
+    #   fastapi
 pygments==2.20.0
     # via rich
 pyjwt==2.12.1
     # via -r requirements.in
 python-dotenv==1.2.2
     # via
+    #   -r requirements.in
     #   pydantic-settings
     #   uvicorn
 python-multipart==0.0.26
