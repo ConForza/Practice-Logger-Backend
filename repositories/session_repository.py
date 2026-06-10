@@ -1,14 +1,26 @@
 from sqlalchemy.orm import Session
-from db.models import SessionDB, TaskDB
-from datetime import datetime
+from sqlalchemy import func
+from db.models import SessionDB, TaskDB, UserDB
+from datetime import datetime, timedelta
 
 from schemas.sessions import StartSessionResponse, EndSessionResponse, PracticeSession
-
+from schemas.teacher import WeeklyStudentProgress
 
 class SessionRepository:
 
     def __init__(self, db: Session):
         self.db = db
+
+    def get_week_start(self):
+        today = datetime.now()
+        start_of_week = today - timedelta(days=today.weekday())
+
+        return start_of_week.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
 
     def start_session(self, task):
         db_session = SessionDB(
@@ -139,3 +151,32 @@ class SessionRepository:
             )
 
         return sessions
+
+    def get_weekly_student_progress(self):
+        week_start = self.get_week_start()
+
+        rows = (
+            self.db.query(
+                UserDB.id.label("student_id"),
+                UserDB.email.label("email"),
+                func.coalesce(func.sum(SessionDB.duration), 0).label("total_duration"),
+                func.count(SessionDB.id).label("session_count"),
+            )
+            .join(TaskDB, TaskDB.user_id == UserDB.id)
+            .join(SessionDB, SessionDB.task_id == TaskDB.id)
+            .filter(UserDB.role == "student")
+            .filter(SessionDB.timestamp >= week_start)
+            .group_by(UserDB.id, UserDB.email)
+            .order_by(func.coalesce(func.sum(SessionDB.duration), 0).desc())
+            .all()
+        )
+
+        return [
+            WeeklyStudentProgress(
+                student_id=row.student_id,
+                email=row.email,
+                total_duration=row.total_duration,
+                session_count=row.session_count,
+            )
+            for row in rows
+        ]

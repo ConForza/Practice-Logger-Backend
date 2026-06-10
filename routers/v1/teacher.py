@@ -45,8 +45,8 @@ async def get_student_sessions_for_teacher(
     response_model=TaskResponse,
 )
 async def assign_task_to_student(
-    student_id: int,
     task_data: TaskRequest,
+    student_id: int,
     current_user: UserResponse = Depends(require_teacher),
     teacher_service: TeacherService = Depends(get_teacher_service),
 ):

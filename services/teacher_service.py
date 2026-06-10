@@ -50,3 +50,6 @@ class TeacherService:
             )
 
         return self.task_repo.create_task(task_data, student_id)
+
+    def get_weekly_student_progress(self):
+        return self.session_repo.get_weekly_student_progress()
