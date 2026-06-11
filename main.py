@@ -19,6 +19,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {
+        "message": "Practice Logger API is running",
+        "docs": "/docs",
+        "api_base": "/api/v1",
+        "status": "ok",
+    }
+
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 app.include_router(tasks.router, prefix=router_prefix)
 app.include_router(sessions.router, prefix=router_prefix)
 app.include_router(auth.router, prefix=router_prefix)
