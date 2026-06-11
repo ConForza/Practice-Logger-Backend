@@ -72,6 +72,10 @@ markupsafe==3.0.3
     # via jinja2
 mdurl==0.1.2
     # via markdown-it-py
+psycopg[binary]==3.3.4
+    # via -r requirements.in
+psycopg-binary==3.3.4
+    # via psycopg
 pwdlib[argon2]==0.3.0
     # via -r requirements.in
 pycparser==3.0

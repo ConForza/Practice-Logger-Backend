@@ -1,5 +1,5 @@
 from db.database import Base
-from sqlalchemy import Column, Integer, String, Boolean, DATETIME, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 
 class UserDB(Base):
     __tablename__ = "users"
@@ -22,5 +22,5 @@ class SessionDB(Base):
     id = Column(Integer, primary_key=True, index=True)
     duration = Column(Integer, nullable=False)
     notes = Column(String)
-    timestamp = Column(DATETIME, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
