@@ -20,9 +20,21 @@ class TaskService:
         return task
 
     def delete_task(self, task_id: int, user_id: int):
-        task_id = self.task_repo.delete_task(task_id, user_id)
-        if not task_id:
-            raise HTTPException(status_code=404, detail="Task not found")
+        try:
+            deleted_task_id = self.task_repo.delete_task(task_id, user_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            )
+
+        if deleted_task_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found",
+            )
+
+        return deleted_task_id
 
     def get_task_by_id(self, task_id: int, user_id: int):
         task = self.task_repo.get_task_by_id(task_id, user_id)

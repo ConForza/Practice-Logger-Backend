@@ -1,6 +1,5 @@
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from db.models import TaskDB
+from db.models import TaskDB, SessionDB
 from schemas.tasks import TaskResponse
 
 
@@ -49,17 +48,29 @@ class TaskRepository:
         return None
 
     def delete_task(self, task_id: int, user_id: int):
-        row = (
+        task = (
             self.db.query(TaskDB)
-            .filter(TaskDB.id == task_id)
-            .filter(TaskDB.user_id == user_id)
+            .filter(TaskDB.id == task_id, TaskDB.user_id == user_id)
             .first()
         )
-        if row:
-            self.db.delete(row)
-            self.db.commit()
-            return row.id
-        return None
+
+        if not task:
+            return None
+
+        has_sessions = (
+                self.db.query(SessionDB)
+                .filter(SessionDB.task_id == task_id)
+                .first()
+                is not None
+        )
+
+        if has_sessions:
+            raise ValueError("Cannot delete a task with practice sessions")
+
+        self.db.delete(task)
+        self.db.commit()
+
+        return task_id
 
     def get_task_by_id(self, task_id: int, user_id: int):
         row = (
