@@ -11,11 +11,12 @@ class UserService:
         self.user_repo = user_repo
 
     def create_user(self, body: CreateUserRequest):
-        if self.user_repo.get_user_by_email(body.email) is not None:
+        email = body.email.lower().strip()
+        if self.user_repo.get_user_by_email(email) is not None:
             raise HTTPException(status_code=400, detail="Email already registered")
 
         user = User(
-            email=body.email.lower().strip(),
+            email=email,
             password=hash_password(body.password),
             is_active=True,
             role="student",
