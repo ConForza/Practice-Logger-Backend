@@ -8,10 +8,15 @@ class TaskRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_all_tasks(self, user_id: int) -> list[TaskResponse]:
+    def get_all_tasks(self, user_id: int, limit: int = 10) -> list[TaskResponse]:
         tasks = []
         query = self.db.query(TaskDB)
-        rows = query.filter(TaskDB.user_id == user_id).all()
+        rows = (
+            query.filter(TaskDB.user_id == user_id)
+            .order_by(TaskDB.id.desc())
+            .limit(limit)
+            .all()
+        )
         for row in rows:
             tasks.append(
                 TaskResponse(

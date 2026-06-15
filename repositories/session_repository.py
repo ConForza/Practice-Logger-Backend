@@ -106,13 +106,14 @@ class SessionRepository:
             return session.id
         return None
 
-    def get_all_sessions(self, user):
+    def get_all_sessions(self, user, limit: int = 10):
         sessions = []
         query = self.db.query(SessionDB, TaskDB)
         rows = (
             query.join(TaskDB, SessionDB.task_id == TaskDB.id)
             .filter(TaskDB.user_id == user.id)
             .order_by(SessionDB.timestamp.desc())
+            .limit(limit)
             .all()
         )
         for session, task in rows:
