@@ -15,7 +15,7 @@ class UserService:
             raise HTTPException(status_code=400, detail="Email already registered")
 
         user = User(
-            email=body.email,
+            email=body.email.lower().strip(),
             password=hash_password(body.password),
             is_active=True,
             role="student",
@@ -27,7 +27,7 @@ class UserService:
 
     def login_user(self, body: UserLoginRequest):
 
-        user = self.user_repo.get_user_by_email(body.email)
+        user = self.user_repo.get_user_by_email(body.email.lower().strip())
 
         if user is None or not verify_password(body.password, user.password):
             raise HTTPException(
