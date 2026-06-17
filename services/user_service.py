@@ -58,4 +58,19 @@ class UserService:
             "token_type": "bearer",
         }
 
+    def reset_user_password(self, user_id: int, new_password: str):
+        hashed_password = hash_password(new_password)
+
+        updated_user = self.user_repo.update_user_password(
+            user_id=user_id,
+            hashed_password=hashed_password,
+        )
+
+        if updated_user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        return {"message": "Password updated successfully"}
 

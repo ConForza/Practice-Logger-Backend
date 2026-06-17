@@ -86,3 +86,15 @@ class UserRepository:
         self.db.refresh(user)
 
         return user
+
+    def update_user_password(self, user_id: int, hashed_password: str):
+        user = self.db.query(UserDB).filter(UserDB.id == user_id).first()
+
+        if not user:
+            return None
+
+        user.hashed_password = hashed_password
+        self.db.commit()
+        self.db.refresh(user)
+
+        return user

@@ -37,3 +37,6 @@ class UserRoleUpdate(BaseModel):
 
 class UserStatusUpdate(BaseModel):
     is_active: bool
+
+class UserPasswordUpdate(BaseModel):
+    new_password: str = Field(min_length=8)

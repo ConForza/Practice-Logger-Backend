@@ -4,8 +4,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from services.user_service import UserService
 from core.deps import get_user_service
-from core.auth import get_current_user
-from schemas.auth import UserResponse, CreateUserRequest, TokenResponse, UserLoginRequest
+from core.auth import get_current_user, require_admin
+from schemas.auth import UserResponse, CreateUserRequest, TokenResponse, UserLoginRequest, UserPasswordUpdate
 
 router = APIRouter(tags=["Auth"])
 
@@ -48,3 +48,15 @@ async def get_me(
     user: Annotated[dict, Depends(get_current_user)],
 ):
     return user
+
+@router.patch("/users/{user_id}/password")
+async def reset_user_password(
+    user_id: int,
+    password_data: UserPasswordUpdate,
+    current_user: UserResponse = Depends(require_admin),
+    user_service: UserService = Depends(get_user_service),
+):
+    return user_service.reset_user_password(
+        user_id=user_id,
+        new_password=password_data.new_password,
+    )
