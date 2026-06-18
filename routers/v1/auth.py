@@ -50,18 +50,6 @@ async def get_me(
 ):
     return user
 
-@router.patch("/users/{user_id}/password")
-async def reset_user_password(
-    user_id: int,
-    password_data: UserPasswordUpdate,
-    current_user: UserResponse = Depends(require_admin),
-    user_service: UserService = Depends(get_user_service),
-):
-    return user_service.reset_user_password(
-        user_id=user_id,
-        new_password=password_data.new_password,
-    )
-
 @router.patch("/me/password")
 async def change_own_password(
     password_data: CurrentUserPasswordUpdate,
@@ -71,5 +59,17 @@ async def change_own_password(
     return user_service.change_current_user_password(
         user_id=current_user.id,
         current_password=password_data.current_password,
+        new_password=password_data.new_password,
+    )
+
+@router.patch("/users/{user_id}/password")
+async def reset_user_password(
+    user_id: int,
+    password_data: UserPasswordUpdate,
+    current_user: UserResponse = Depends(require_admin),
+    user_service: UserService = Depends(get_user_service),
+):
+    return user_service.reset_user_password(
+        user_id=user_id,
         new_password=password_data.new_password,
     )
