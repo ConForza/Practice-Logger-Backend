@@ -50,7 +50,7 @@ async def get_me(
 ):
     return user
 
-@router.patch("/me/password")
+@router.patch("/users/me/password")
 async def change_own_password(
     password_data: CurrentUserPasswordUpdate,
     current_user: UserResponse = Depends(get_current_user),
