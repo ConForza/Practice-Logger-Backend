@@ -40,3 +40,7 @@ class UserStatusUpdate(BaseModel):
 
 class UserPasswordUpdate(BaseModel):
     new_password: str = Field(min_length=8)
+
+class CurrentUserPasswordUpdate(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)

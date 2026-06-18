@@ -74,3 +74,31 @@ class UserService:
 
         return {"message": "Password updated successfully"}
 
+    def change_current_user_password(
+            self,
+            user_id: int,
+            current_password: str,
+            new_password: str,
+    ):
+        user = self.user_repo.get_user_by_id(user_id)
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        if not verify_password(current_password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+
+        hashed_password = hash_password(new_password)
+
+        self.user_repo.update_user_password(
+            user_id=user_id,
+            hashed_password=hashed_password,
+        )
+
+        return {"message": "Password changed successfully"}
