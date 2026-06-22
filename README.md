@@ -18,6 +18,7 @@ It is designed to work with the React frontend:
 
 - User registration
 - User login with JWT authentication
+- Extended token expiration
 - Current user endpoint via `/auth/me`
 - Hashed password authentication
 - Role-based access for student, teacher, and admin users
@@ -34,6 +35,7 @@ It is designed to work with the React frontend:
 - Admin role management
 - Admin user activation/deactivation
 - Protection against accidental admin self-demotion or self-deactivation
+- PWA support for mobile devices
 
 ## Tech stack
 
@@ -172,14 +174,13 @@ Students can create tasks and log timed practice sessions. Teachers can assign t
 
 ## Planned improvements
 
-- Admin password reset
 - Teacher assignment overview
 - Teacher-student ownership relationships
 - Multiple tasks within a single practice session
-- PWA support for students and teachers
 - Alembic migrations
 - Expanded automated tests
 - More detailed progress analytics
+- Refresh-token support
 
 ## Related project
 
