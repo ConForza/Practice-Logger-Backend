@@ -11,6 +11,7 @@ from services.task_service import TaskService
 from services.teacher_service import TeacherService
 from services.user_service import UserService
 from services.admin_service import AdminService
+from services.teacher_student_link_service import TeacherStudentLinkService
 
 
 def get_db():
@@ -29,9 +30,7 @@ def get_user_repository(db: Session = Depends(get_db)):
 def get_session_repository(db: Session = Depends(get_db)):
     return SessionRepository(db)
 
-def get_teacher_student_link_repository(
-    db: Session = Depends(get_db),
-):
+def get_teacher_student_link_repository(db: Session = Depends(get_db)):
     return TeacherStudentLinkRepository(db)
 
 def get_task_service(
@@ -60,3 +59,9 @@ def get_admin_service(
     user_repo: UserRepository = Depends(get_user_repository),
 ):
     return AdminService(user_repo)
+
+def get_teacher_student_link_service(
+    link_repo: TeacherStudentLinkRepository = Depends(get_teacher_student_link_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+):
+    return TeacherStudentLinkService(link_repo, user_repo)

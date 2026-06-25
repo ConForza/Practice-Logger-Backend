@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from core.auth import require_admin
 from schemas.auth import UserResponse, UserRoleUpdate, UserStatusUpdate
-from core.deps import get_admin_service
+from schemas.teacher_student_links import TeacherStudentLinkCreate, TeacherStudentLinkResponse
+from core.deps import get_admin_service, get_teacher_student_link_service
 from services.admin_service import AdminService
+from services.teacher_student_link_service import TeacherStudentLinkService
 
 router = APIRouter(
     prefix="/admin",
@@ -56,3 +58,45 @@ async def update_user_status(
         )
 
     return admin_service.update_user_status(user_id, status_data.is_active)
+
+@router.get(
+    "/teacher-student-links",
+    response_model=list[TeacherStudentLinkResponse],
+)
+async def get_teacher_student_links(
+    current_user: UserResponse = Depends(require_admin),
+    link_service: TeacherStudentLinkService = Depends(
+        get_teacher_student_link_service
+    ),
+):
+    return link_service.get_all_links()
+
+
+@router.post(
+    "/teacher-student-links",
+    response_model=TeacherStudentLinkResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_teacher_student_link(
+    link_data: TeacherStudentLinkCreate,
+    current_user: UserResponse = Depends(require_admin),
+    link_service: TeacherStudentLinkService = Depends(
+        get_teacher_student_link_service
+    ),
+):
+    return link_service.create_link(
+        teacher_id=link_data.teacher_id,
+        student_id=link_data.student_id,
+        instrument=link_data.instrument,
+    )
+
+
+@router.delete("/teacher-student-links/{link_id}")
+async def delete_teacher_student_link(
+    link_id: int,
+    current_user: UserResponse = Depends(require_admin),
+    link_service: TeacherStudentLinkService = Depends(
+        get_teacher_student_link_service
+    ),
+):
+    return link_service.delete_link(link_id)
