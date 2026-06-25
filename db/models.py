@@ -1,5 +1,5 @@
 from db.database import Base
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, UniqueConstraint
 
 class UserDB(Base):
     __tablename__ = "users"
@@ -16,6 +16,11 @@ class TaskDB(Base):
     description = Column(String)
     status = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"))
+    teacher_student_link_id = Column(
+        Integer,
+        ForeignKey("teacher_student_links.id"),
+        nullable=True,
+    )
 
 class SessionDB(Base):
     __tablename__ = "sessions"
@@ -24,3 +29,20 @@ class SessionDB(Base):
     notes = Column(String)
     timestamp = Column(DateTime, nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+
+class TeacherStudentLinkDB(Base):
+    __tablename__ = "teacher_student_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    instrument = Column(String, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "teacher_id",
+            "student_id",
+            "instrument",
+            name="unique_teacher_student_instrument_link",
+        ),
+    )

@@ -5,6 +5,7 @@ from db.database import SessionLocal
 from repositories.task_repository import TaskRepository
 from repositories.user_repository import UserRepository
 from repositories.session_repository import SessionRepository
+from repositories.teacher_student_link_repository import TeacherStudentLinkRepository
 from services.session_service import SessionService
 from services.task_service import TaskService
 from services.teacher_service import TeacherService
@@ -27,6 +28,11 @@ def get_user_repository(db: Session = Depends(get_db)):
 
 def get_session_repository(db: Session = Depends(get_db)):
     return SessionRepository(db)
+
+def get_teacher_student_link_repository(
+    db: Session = Depends(get_db),
+):
+    return TeacherStudentLinkRepository(db)
 
 def get_task_service(
     task_repo: TaskRepository = Depends(get_task_repository),
