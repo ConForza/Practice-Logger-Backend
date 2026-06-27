@@ -51,9 +51,10 @@ def get_session_service(
 def get_teacher_service(
     user_repo: UserRepository = Depends(get_user_repository),
     session_repo: SessionRepository = Depends(get_session_repository),
-    task_repo: TaskRepository = Depends(get_task_repository)
+    task_repo: TaskRepository = Depends(get_task_repository),
+    link_repo: TeacherStudentLinkRepository = Depends(get_teacher_student_link_repository),
 ):
-    return TeacherService(user_repo, session_repo, task_repo)
+    return TeacherService(user_repo, session_repo, task_repo, link_repo)
 
 def get_admin_service(
     user_repo: UserRepository = Depends(get_user_repository),
