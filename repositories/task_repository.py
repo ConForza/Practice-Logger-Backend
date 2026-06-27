@@ -94,12 +94,13 @@ class TaskRepository:
             user_id=row.user_id,
         )
 
-    def create_task(self, body, user_id: int):
+    def create_task(self, body, user_id: int, teacher_student_link_id: int | None = None):
         db_task = TaskDB(
             title=body.title,
             description=body.description,
             status="pending",
             user_id=user_id,
+            teacher_student_link_id=teacher_student_link_id,
         )
         self.db.add(db_task)
         self.db.commit()

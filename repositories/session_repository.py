@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from db.models import SessionDB, TaskDB, UserDB
+from db.models import SessionDB, TaskDB, UserDB, TeacherStudentLinkDB
 from datetime import datetime, timedelta
 
 from schemas.sessions import StartSessionResponse, EndSessionResponse, PracticeSession
@@ -153,7 +153,7 @@ class SessionRepository:
 
         return sessions
 
-    def get_weekly_student_progress(self):
+    def get_weekly_student_progress(self, teacher_id: int):
         week_start = self.get_week_start()
 
         rows = (
@@ -165,7 +165,11 @@ class SessionRepository:
             )
             .join(TaskDB, TaskDB.user_id == UserDB.id)
             .join(SessionDB, SessionDB.task_id == TaskDB.id)
-            .filter(UserDB.role == "student")
+            .join(
+                TeacherStudentLinkDB,
+                TaskDB.teacher_student_link_id == TeacherStudentLinkDB.id,
+            )
+            .filter(TeacherStudentLinkDB.teacher_id == teacher_id)
             .filter(SessionDB.timestamp >= week_start)
             .group_by(UserDB.id, UserDB.email)
             .order_by(func.coalesce(func.sum(SessionDB.duration), 0).desc())

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from db.models import UserDB
+from db.models import UserDB, TeacherStudentLinkDB
 from schemas.auth import User, UserResponse, UserDBResponse
 
 
@@ -43,11 +43,20 @@ class UserRepository:
             role=db_user.role,
         )
 
-    def get_students(self):
+    def get_students_for_teacher(self, teacher_id: int):
         return (
             self.db.query(UserDB)
-            .filter(UserDB.role == "student")
-            .order_by(UserDB.email)
+            .join(
+                TeacherStudentLinkDB,
+                TeacherStudentLinkDB.student_id == UserDB.id,
+            )
+            .filter(
+                TeacherStudentLinkDB.teacher_id == teacher_id,
+                UserDB.role == "student",
+                UserDB.is_active == True,
+            )
+            .order_by(UserDB.email.asc())
+            .distinct()
             .all()
         )
 

@@ -28,7 +28,7 @@ async def get_teacher_students(
     current_user: UserResponse = Depends(require_teacher),
     teacher_service: TeacherService = Depends(get_teacher_service),
 ):
-    return teacher_service.get_students()
+    return teacher_service.get_students(current_user.id)
 
 @router.get(
     "/students/{student_id}/sessions",
@@ -39,7 +39,7 @@ async def get_student_sessions_for_teacher(
     current_user: UserResponse = Depends(require_teacher),
     teacher_service: TeacherService = Depends(get_teacher_service),
 ):
-    return teacher_service.get_student_sessions(student_id)
+    return teacher_service.get_student_sessions(teacher_id=current_user.id, student_id=student_id,)
 
 @router.post(
     "/students/{student_id}/tasks",
@@ -61,4 +61,4 @@ async def get_weekly_student_progress(
     current_user: UserResponse = Depends(require_teacher),
     teacher_service: TeacherService = Depends(get_teacher_service),
 ):
-    return teacher_service.get_weekly_student_progress()
+    return teacher_service.get_weekly_student_progress(teacher_id=current_user.id)

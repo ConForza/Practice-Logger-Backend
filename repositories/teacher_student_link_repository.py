@@ -48,3 +48,21 @@ class TeacherStudentLinkRepository:
         self.db.commit()
 
         return link_id
+
+    def get_links_for_teacher(self, teacher_id: int):
+        return (
+            self.db.query(TeacherStudentLinkDB)
+            .filter(TeacherStudentLinkDB.teacher_id == teacher_id)
+            .order_by(TeacherStudentLinkDB.instrument.asc())
+            .all()
+        )
+
+    def get_link_for_teacher_and_student(self, teacher_id: int, student_id: int):
+        return (
+            self.db.query(TeacherStudentLinkDB)
+            .filter(
+                TeacherStudentLinkDB.teacher_id == teacher_id,
+                TeacherStudentLinkDB.student_id == student_id,
+            )
+            .first()
+        )
