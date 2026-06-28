@@ -66,9 +66,16 @@ class TeacherService:
                 detail="Requested user is not a student",
             )
 
-        link = self.link_repo.get_link_for_teacher_and_student(teacher_id, student_id)
-        self.ensure_teacher_can_access_student(teacher_id, student_id)
-        return self.task_repo.create_task(task_data, student_id, link.id)
+        link = self.ensure_teacher_can_access_student(
+            teacher_id=teacher_id,
+            student_id=student_id,
+        )
+
+        return self.task_repo.create_task(
+            body=task_data,
+            user_id=student_id,
+            teacher_student_link_id=link.id,
+        )
 
     def get_weekly_student_progress(self, teacher_id: int):
         return self.session_repo.get_weekly_student_progress(teacher_id)

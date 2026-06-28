@@ -51,7 +51,11 @@ async def assign_task_to_student(
     current_user: UserResponse = Depends(require_teacher),
     teacher_service: TeacherService = Depends(get_teacher_service),
 ):
-    return teacher_service.assign_task_to_student(task_data, student_id)
+    return teacher_service.assign_task_to_student(
+        task_data=task_data,
+        teacher_id=current_user.id,
+        student_id=student_id,
+    )
 
 @router.get(
     "/progress/weekly",
