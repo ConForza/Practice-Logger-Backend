@@ -163,14 +163,22 @@ class SessionRepository:
                 func.coalesce(func.sum(SessionDB.duration), 0).label("total_duration"),
                 func.count(SessionDB.id).label("session_count"),
             )
-            .join(TaskDB, TaskDB.user_id == UserDB.id)
-            .join(SessionDB, SessionDB.task_id == TaskDB.id)
             .join(
                 TeacherStudentLinkDB,
+                TeacherStudentLinkDB.student_id == UserDB.id,
+            )
+            .outerjoin(
+                TaskDB,
                 TaskDB.teacher_student_link_id == TeacherStudentLinkDB.id,
             )
+            .outerjoin(
+                SessionDB,
+                (SessionDB.task_id == TaskDB.id)
+                & (SessionDB.timestamp >= week_start),
+            )
             .filter(TeacherStudentLinkDB.teacher_id == teacher_id)
-            .filter(SessionDB.timestamp >= week_start)
+            .filter(UserDB.role == "student")
+            .filter(UserDB.is_active == True)
             .group_by(UserDB.id, UserDB.email)
             .order_by(func.coalesce(func.sum(SessionDB.duration), 0).desc())
             .all()
