@@ -16,26 +16,23 @@ It is designed to work with the React frontend:
 
 ## Current features
 
-- User registration
-- User login with JWT authentication
-- Extended token expiration
-- Current user endpoint via `/auth/me`
-- Hashed password authentication
 - Role-based access for student, teacher, and admin users
 - Task CRUD for student users
+- Teacher-assigned tasks
+- Teacher-assigned tasks store internal teacher-student ownership data
 - Start and end timed practice sessions
 - Active practice session lookup
 - Session history
-- Validation to prevent deleting tasks with active sessions
-- Teacher endpoint for listing student users
-- Teacher endpoint for viewing selected student practice sessions
-- Teacher endpoint for assigning tasks to students
-- Teacher weekly student progress ranking
+- Teacher endpoint for listing assigned students
+- Teacher endpoint for viewing selected assigned student practice sessions
+- Teacher endpoint for assigning tasks to assigned students
+- Teacher weekly practice summaries for assigned students
 - Admin user listing
 - Admin role management
 - Admin user activation/deactivation
+- Admin password reset
+- Admin-managed teacher-student assignments
 - Protection against accidental admin self-demotion or self-deactivation
-- PWA support for mobile devices
 
 ## Tech stack
 
@@ -104,7 +101,14 @@ The main tables are:
 - `tasks`
 - `sessions`
 
-SQLAlchemy is used for model definitions, relationships, and database queries.
+The main tables are:
+
+- `users`
+- `tasks`
+- `sessions`
+- `teacher_student_links`
+
+Teacher-student links control which students a teacher can access. Teacher-assigned tasks can also store a `teacher_student_link_id`, allowing the frontend to distinguish teacher-assigned tasks from student-created tasks. SQLAlchemy is used for model definitions, relationships, and database queries.
 
 ## Main endpoints
 
@@ -135,10 +139,11 @@ DELETE /api/v1/tasks/{task_id}
 ### Practice sessions
 
 ```txt
-POST /api/v1/tasks/{task_id}/sessions/start
-POST /api/v1/tasks/{task_id}/sessions/end
+POST /api/v1/sessions/start/{task_id}
+POST /api/v1/sessions/end/{task_id}
 GET  /api/v1/sessions
 GET  /api/v1/sessions/active
+DELETE /api/v1/sessions/{session_id}
 ```
 
 ### Teacher
@@ -154,28 +159,34 @@ GET  /api/v1/teacher/progress/weekly
 ### Admin
 
 ```txt
-GET   /api/v1/admin/status
-GET   /api/v1/admin/users
-PATCH /api/v1/admin/users/{user_id}/role
-PATCH /api/v1/admin/users/{user_id}/status
+GET    /api/v1/admin/status
+GET    /api/v1/admin/users
+PATCH  /api/v1/admin/users/{user_id}/role
+PATCH  /api/v1/admin/users/{user_id}/status
+GET    /api/v1/admin/teacher-student-links
+POST   /api/v1/admin/teacher-student-links
+DELETE /api/v1/admin/teacher-student-links/{link_id}
+```
+
+### User account management
+
+```txt
+PATCH /api/v1/users/me/password
+PATCH /api/v1/users/{user_id}/password
 ```
 
 ## Deployment
 
 The backend is deployed on Railway with a Railway PostgreSQL database.
-
 The React frontend is deployed separately on Netlify and connects to this API using a `VITE_API_BASE_URL` environment variable.
 
 ## Project status
 
 The core student, teacher, and admin workflows are functional and deployed.
-
-Students can create tasks and log timed practice sessions. Teachers can assign tasks, view student sessions, and monitor weekly progress. Admins can manage user accounts, roles, and account status.
+Students can create tasks, complete teacher-assigned tasks, and log timed practice sessions. Teachers can view only students assigned to them, review session history, assign tasks, and view weekly practice summaries. Admins can manage user accounts and teacher-student assignments from the admin workflow.
 
 ## Planned improvements
 
-- Teacher assignment overview
-- Teacher-student ownership relationships
 - Multiple tasks within a single practice session
 - Alembic migrations
 - Expanded automated tests
