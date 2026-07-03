@@ -25,6 +25,7 @@ class TaskRepository:
                     description=row.description,
                     status=row.status,
                     user_id=row.user_id,
+                    teacher_student_link_id=row.teacher_student_link_id,
                 )
             )
         return tasks

@@ -19,3 +19,4 @@ class TaskResponse(BaseModel):
     description: str | None = None
     status: str
     user_id: int
+    teacher_student_link_id: int | None = None
