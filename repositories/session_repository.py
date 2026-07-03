@@ -169,7 +169,7 @@ class SessionRepository:
             )
             .outerjoin(
                 TaskDB,
-                TaskDB.teacher_student_link_id == TeacherStudentLinkDB.id,
+                TaskDB.user_id == UserDB.id,
             )
             .outerjoin(
                 SessionDB,
