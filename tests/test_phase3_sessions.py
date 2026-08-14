@@ -123,6 +123,11 @@ class PhaseThreeSessionTests(unittest.TestCase):
         )
         self.assertIsNone(started.json()["current_task_id"])
 
+        with TEST_SESSION_LOCAL() as db:
+            stored = db.get(SessionDB, session_id)
+            self.assertIsNone(stored.timestamp.tzinfo)
+            self.assertIsNone(stored.started_at.tzinfo)
+
         selected_scales = self.client.post(
             f"/api/v1/sessions/{session_id}/current-task",
             json={"task_id": scales["id"]},
@@ -191,6 +196,10 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertTrue(
             ended.json()["start_time"].endswith(("Z", "+00:00"))
         )
+
+        with TEST_SESSION_LOCAL() as db:
+            stored = db.get(SessionDB, session_id)
+            self.assertIsNone(stored.ended_at.tzinfo)
 
         tasks = self.client.get("/api/v1/tasks", headers=self.headers).json()
         statuses = {task["id"]: task["status"] for task in tasks}

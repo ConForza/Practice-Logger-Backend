@@ -3,7 +3,7 @@ from datetime import timedelta
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from core.time import ensure_utc, utc_now
+from core.time import ensure_utc, utc_now, utc_now_naive
 from db.models import (
     SessionDB,
     SessionTaskDB,
@@ -72,7 +72,7 @@ class SessionRepository:
         )
 
     def start_session(self, user, task=None) -> PracticeSession:
-        now = utc_now()
+        now = utc_now_naive()
         db_session = SessionDB(
             user_id=user.id,
             timestamp=now,
@@ -168,7 +168,7 @@ class SessionRepository:
         notes: str | None = None,
     ) -> PracticeSession:
         session.duration = duration
-        session.ended_at = utc_now()
+        session.ended_at = utc_now_naive()
         session.current_task_id = None
         if notes is not None:
             session.notes = notes
