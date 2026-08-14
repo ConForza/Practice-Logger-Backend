@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from db.models import (
@@ -107,8 +107,11 @@ class SessionRepository:
             .filter(
                 SessionDB.user_id == user_id,
                 or_(
-                    SessionDB.task_id == task_id,
                     SessionDB.current_task_id == task_id,
+                    and_(
+                        SessionDB.current_task_id.is_(None),
+                        SessionDB.task_id == task_id,
+                    ),
                 ),
                 SessionDB.ended_at.is_(None),
             )
