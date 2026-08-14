@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import Mock
 
 os.environ.setdefault("JWT_SECRET_KEY", "phase-three-test-secret-key")
 
@@ -85,6 +86,24 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
 
+    def register_and_login(self, email: str):
+        register = self.client.post(
+            "/api/v1/auth/register",
+            json={"email": email, "password": "test-password"},
+        )
+        self.assertEqual(register.status_code, 201, register.text)
+        login = self.client.post(
+            "/api/v1/auth/login",
+            data={
+                "username": email,
+                "password": "test-password",
+            },
+        )
+        self.assertEqual(login.status_code, 200, login.text)
+        return {
+            "Authorization": f"Bearer {login.json()['access_token']}"
+        }, register.json()
+
     def test_multitask_session_and_explicit_task_lifecycle(self):
         scales = self.create_task("Scales")
         sonata = self.create_task("Sonata")
@@ -95,6 +114,7 @@ class PhaseThreeSessionTests(unittest.TestCase):
         )
         self.assertEqual(started.status_code, 200, started.text)
         session_id = started.json()["id"]
+        started_at = started.json()["started_at"]
         self.assertIsNone(started.json()["current_task_id"])
 
         selected_scales = self.client.post(
@@ -110,6 +130,9 @@ class PhaseThreeSessionTests(unittest.TestCase):
             headers=self.headers,
         )
         self.assertEqual(selected_sonata.status_code, 200)
+        self.assertEqual(selected_sonata.json()["id"], session_id)
+        self.assertEqual(selected_sonata.json()["started_at"], started_at)
+        self.assertIsNone(selected_sonata.json()["ended_at"])
         self.assertEqual(selected_sonata.json()["current_task_id"], sonata["id"])
         self.assertEqual(
             [task["id"] for task in selected_sonata.json()["tasks"]],
@@ -283,6 +306,131 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(progress[0].total_duration, 27)
         self.assertEqual(progress[0].session_count, 2)
 
+    def test_students_cannot_use_or_update_another_students_task(self):
+        other_headers, _ = self.register_and_login(
+            "other-student@example.com"
+        )
+        other_task = self.client.post(
+            "/api/v1/tasks",
+            json={"title": "Other student's task", "description": None},
+            headers=other_headers,
+        )
+        self.assertEqual(other_task.status_code, 200, other_task.text)
+
+        started = self.client.post(
+            "/api/v1/sessions/start",
+            headers=self.headers,
+        )
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["id"]
+
+        attach = self.client.post(
+            f"/api/v1/sessions/{session_id}/current-task",
+            json={"task_id": other_task.json()["id"]},
+            headers=self.headers,
+        )
+        self.assertEqual(attach.status_code, 404, attach.text)
+
+        update = self.client.patch(
+            f"/api/v1/tasks/{other_task.json()['id']}/status",
+            json={"status": "completed"},
+            headers=self.headers,
+        )
+        self.assertEqual(update.status_code, 404, update.text)
+
+        other_tasks = self.client.get(
+            "/api/v1/tasks", headers=other_headers
+        )
+        self.assertEqual(other_tasks.status_code, 200, other_tasks.text)
+        self.assertEqual(other_tasks.json()[0]["status"], "open")
+
+        self.client.post(
+            f"/api/v1/sessions/{session_id}/end",
+            headers=self.headers,
+        )
+
+    def test_teacher_access_requires_existing_link_and_preserves_assignment_link(self):
+        teacher_register = self.client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "teacher-access@example.com",
+                "password": "test-password",
+            },
+        )
+        self.assertEqual(teacher_register.status_code, 201, teacher_register.text)
+        teacher_id = teacher_register.json()["id"]
+        student_id = self.client.get(
+            "/api/v1/auth/me", headers=self.headers
+        ).json()["id"]
+        with TEST_SESSION_LOCAL() as db:
+            db.get(UserDB, teacher_id).role = "teacher"
+            link = TeacherStudentLinkDB(
+                teacher_id=teacher_id,
+                student_id=student_id,
+                instrument="Piano",
+            )
+            db.add(link)
+            db.flush()
+            link_id = link.id
+            db.commit()
+
+        teacher_login = self.client.post(
+            "/api/v1/auth/login",
+            data={
+                "username": "teacher-access@example.com",
+                "password": "test-password",
+            },
+        )
+        self.assertEqual(teacher_login.status_code, 200, teacher_login.text)
+        teacher_headers = {
+            "Authorization": f"Bearer {teacher_login.json()['access_token']}"
+        }
+        assigned = self.client.post(
+            f"/api/v1/teacher/students/{student_id}/tasks",
+            json={"title": "Teacher assignment", "description": None},
+            headers=teacher_headers,
+        )
+        self.assertEqual(assigned.status_code, 200, assigned.text)
+        self.assertEqual(assigned.json()["teacher_student_link_id"], link_id)
+
+        linked_sessions = self.client.get(
+            f"/api/v1/teacher/students/{student_id}/sessions",
+            headers=teacher_headers,
+        )
+        self.assertEqual(linked_sessions.status_code, 200, linked_sessions.text)
+
+        other_headers, other_user = self.register_and_login(
+            "unassigned-student@example.com"
+        )
+        other_started = self.client.post(
+            "/api/v1/sessions/start",
+            headers=other_headers,
+        )
+        self.assertEqual(other_started.status_code, 200, other_started.text)
+        other_session_id = other_started.json()["id"]
+
+        restricted_sessions = self.client.get(
+            f"/api/v1/teacher/students/{other_user['id']}/sessions",
+            headers=teacher_headers,
+        )
+        self.assertEqual(restricted_sessions.status_code, 403, restricted_sessions.text)
+
+        with TEST_SESSION_LOCAL() as db:
+            session = db.get(SessionDB, other_session_id)
+            session.duration = 9
+            session.ended_at = datetime.now()
+            db.commit()
+
+        progress = self.client.get(
+            "/api/v1/teacher/progress/weekly",
+            headers=teacher_headers,
+        )
+        self.assertEqual(progress.status_code, 200, progress.text)
+        self.assertEqual(
+            {row["student_id"] for row in progress.json()},
+            {student_id},
+        )
+
 
 class MigrationTests(unittest.TestCase):
     def test_legacy_sessions_are_backfilled_and_migration_is_repeatable(self):
@@ -314,6 +462,9 @@ class MigrationTests(unittest.TestCase):
                 text("INSERT INTO tasks VALUES (10, 'Active', NULL, 'in progress', 1, NULL)")
             )
             connection.execute(
+                text("INSERT INTO tasks VALUES (12, 'Pending', NULL, 'pending', 1, NULL)")
+            )
+            connection.execute(
                 text("INSERT INTO tasks VALUES (11, 'Completed', NULL, 'completed', 1, NULL)")
             )
             connection.execute(
@@ -341,6 +492,7 @@ class MigrationTests(unittest.TestCase):
             completed = db.get(SessionDB, 21)
             links = db.query(SessionTaskDB).order_by(SessionTaskDB.session_id).all()
             self.assertEqual(db.get(TaskDB, 10).status, "open")
+            self.assertEqual(db.get(TaskDB, 12).status, "open")
             self.assertEqual(active.user_id, 1)
             self.assertEqual(active.current_task_id, 10)
             self.assertIsNone(active.ended_at)
@@ -352,6 +504,31 @@ class MigrationTests(unittest.TestCase):
             )
 
         engine.dispose()
+
+    def test_postgresql_backfill_uses_interval_and_conflict_safe_insert(self):
+        connection = Mock()
+        connection.dialect.name = "postgresql"
+
+        from db.migrations import _backfill_data
+
+        _backfill_data(connection)
+
+        statements = [
+            call.args[0].text
+            for call in connection.execute.call_args_list
+        ]
+        self.assertTrue(
+            any("INTERVAL '1 minute'" in statement for statement in statements)
+        )
+        self.assertTrue(
+            any(
+                "ON CONFLICT (session_id, task_id) DO NOTHING" in statement
+                for statement in statements
+            )
+        )
+        self.assertFalse(
+            any("INSERT OR IGNORE" in statement for statement in statements)
+        )
 
 
 if __name__ == "__main__":
