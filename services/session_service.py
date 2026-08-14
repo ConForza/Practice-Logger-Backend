@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import HTTPException
 
+from core.time import ensure_utc, utc_now
 from repositories.session_repository import SessionRepository
 from repositories.task_repository import TaskRepository
 from schemas.sessions import EndSessionResponse, PracticeSession, StartSessionResponse
@@ -14,7 +15,8 @@ class SessionService:
 
     @staticmethod
     def calculate_session_duration(start_time: datetime) -> int:
-        elapsed_seconds = (datetime.now() - start_time).total_seconds()
+        normalized_start = ensure_utc(start_time)
+        elapsed_seconds = (utc_now() - normalized_start).total_seconds()
         return max(0, int(elapsed_seconds // 60))
 
     def _ensure_no_active_session(self, user):
