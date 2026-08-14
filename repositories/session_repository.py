@@ -3,7 +3,7 @@ from datetime import timedelta
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from core.time import ensure_utc, utc_now, utc_now_naive
+from core.time import ensure_utc, utc_now_naive
 from db.models import (
     SessionDB,
     SessionTaskDB,
@@ -20,7 +20,7 @@ class SessionRepository:
         self.db = db
 
     def get_week_start(self):
-        today = utc_now()
+        today = utc_now_naive()
         start_of_week = today - timedelta(days=today.weekday())
         return start_of_week.replace(
             hour=0,
