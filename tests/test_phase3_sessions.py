@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -21,8 +21,10 @@ from db.models import (
     UserDB,
 )
 from core.deps import get_db
+from core.time import ensure_utc
 from main import app
 from repositories.session_repository import SessionRepository
+from services.session_service import SessionService
 
 
 TEST_DIRECTORY = tempfile.TemporaryDirectory()
@@ -115,7 +117,16 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(started.status_code, 200, started.text)
         session_id = started.json()["id"]
         started_at = started.json()["started_at"]
+        self.assertTrue(started_at.endswith(("Z", "+00:00")))
+        self.assertTrue(
+            started.json()["start_time"].endswith(("Z", "+00:00"))
+        )
         self.assertIsNone(started.json()["current_task_id"])
+
+        with TEST_SESSION_LOCAL() as db:
+            stored = db.get(SessionDB, session_id)
+            self.assertIsNone(stored.timestamp.tzinfo)
+            self.assertIsNone(stored.started_at.tzinfo)
 
         selected_scales = self.client.post(
             f"/api/v1/sessions/{session_id}/current-task",
@@ -179,6 +190,16 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(ended.status_code, 200, ended.text)
         self.assertEqual(ended.json()["status"], "completed")
         self.assertEqual(ended.json()["duration"], 0)
+        self.assertTrue(
+            ended.json()["ended_at"].endswith(("Z", "+00:00"))
+        )
+        self.assertTrue(
+            ended.json()["start_time"].endswith(("Z", "+00:00"))
+        )
+
+        with TEST_SESSION_LOCAL() as db:
+            stored = db.get(SessionDB, session_id)
+            self.assertIsNone(stored.ended_at.tzinfo)
 
         tasks = self.client.get("/api/v1/tasks", headers=self.headers).json()
         statuses = {task["id"]: task["status"] for task in tasks}
@@ -198,6 +219,59 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(history.status_code, 200)
         self.assertEqual(len(history.json()[0]["tasks"]), 2)
 
+    def test_legacy_naive_timestamps_are_serialized_as_utc(self):
+        started = self.client.post(
+            "/api/v1/sessions/start",
+            headers=self.headers,
+        )
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["id"]
+        legacy_started = datetime(2026, 8, 14, 17, 37, 1, 123456)
+        legacy_ended = datetime(2026, 8, 14, 17, 39, 1, 123456)
+
+        with TEST_SESSION_LOCAL() as db:
+            session = db.get(SessionDB, session_id)
+            session.timestamp = legacy_started
+            session.started_at = legacy_started
+            session.ended_at = legacy_ended
+            db.commit()
+
+        history = self.client.get("/api/v1/sessions", headers=self.headers)
+        self.assertEqual(history.status_code, 200, history.text)
+        session_json = history.json()[0]
+        self.assertEqual(
+            session_json["started_at"], "2026-08-14T17:37:01.123456Z"
+        )
+        self.assertEqual(
+            session_json["start_time"], "2026-08-14T17:37:01.123456Z"
+        )
+        self.assertEqual(
+            session_json["ended_at"], "2026-08-14T17:39:01.123456Z"
+        )
+
+        ended = self.client.post(
+            f"/api/v1/sessions/{session_id}/end",
+            headers=self.headers,
+        )
+        self.assertEqual(ended.status_code, 400)
+
+    def test_duration_normalizes_naive_and_aware_utc_values(self):
+        naive_start = datetime.now(timezone.utc).replace(
+            tzinfo=None
+        ) - timedelta(minutes=2)
+        aware_start = datetime.now(timezone.utc) - timedelta(minutes=2)
+
+        naive_duration = SessionService.calculate_session_duration(naive_start)
+        aware_duration = SessionService.calculate_session_duration(aware_start)
+
+        self.assertGreaterEqual(naive_duration, 1)
+        self.assertGreaterEqual(aware_duration, 1)
+        self.assertLessEqual(naive_duration, 3)
+        self.assertLessEqual(aware_duration, 3)
+        self.assertEqual(
+            ensure_utc(naive_start), naive_start.replace(tzinfo=timezone.utc)
+        )
+
     def test_legacy_task_routes_still_work(self):
         task = self.create_task("Legacy task")
         started = self.client.post(
@@ -209,7 +283,9 @@ class PhaseThreeSessionTests(unittest.TestCase):
 
         with TEST_SESSION_LOCAL() as db:
             session = db.get(SessionDB, session_id)
-            old_start = datetime.now() - timedelta(minutes=2)
+            old_start = datetime.now(timezone.utc).replace(
+                tzinfo=None
+            ) - timedelta(minutes=2)
             session.timestamp = old_start
             session.started_at = old_start
             db.commit()
@@ -240,7 +316,9 @@ class PhaseThreeSessionTests(unittest.TestCase):
 
         with TEST_SESSION_LOCAL() as db:
             session = db.get(SessionDB, session_id)
-            old_start = datetime.now() - timedelta(minutes=2)
+            old_start = datetime.now(timezone.utc).replace(
+                tzinfo=None
+            ) - timedelta(minutes=2)
             session.timestamp = old_start
             session.started_at = old_start
             db.commit()

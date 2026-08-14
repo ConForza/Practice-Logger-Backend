@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
+from core.time import ensure_utc, utc_now, utc_now_naive
 from db.models import (
     SessionDB,
     SessionTaskDB,
@@ -19,7 +20,7 @@ class SessionRepository:
         self.db = db
 
     def get_week_start(self):
-        today = datetime.now()
+        today = utc_now()
         start_of_week = today - timedelta(days=today.weekday())
         return start_of_week.replace(
             hour=0,
@@ -45,12 +46,13 @@ class SessionRepository:
         if compatibility_task is None and tasks:
             compatibility_task = tasks[0]
 
-        started_at = session.started_at or session.timestamp
+        started_at = ensure_utc(session.started_at or session.timestamp)
+        ended_at = ensure_utc(session.ended_at)
         return PracticeSession(
             id=session.id,
             user_id=session.user_id or 0,
             started_at=started_at,
-            ended_at=session.ended_at,
+            ended_at=ended_at,
             duration=session.duration,
             notes=session.notes,
             current_task_id=session.current_task_id,
@@ -63,14 +65,14 @@ class SessionRepository:
                 )
                 for task in tasks
             ],
-            status="active" if session.ended_at is None else "completed",
+            status="active" if ended_at is None else "completed",
             start_time=started_at,
             task_id=compatibility_task.id if compatibility_task else None,
             title=compatibility_task.title if compatibility_task else None,
         )
 
     def start_session(self, user, task=None) -> PracticeSession:
-        now = datetime.now()
+        now = utc_now_naive()
         db_session = SessionDB(
             user_id=user.id,
             timestamp=now,
@@ -166,7 +168,7 @@ class SessionRepository:
         notes: str | None = None,
     ) -> PracticeSession:
         session.duration = duration
-        session.ended_at = datetime.now()
+        session.ended_at = utc_now_naive()
         session.current_task_id = None
         if notes is not None:
             session.notes = notes
