@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, status
 from core.auth import get_current_user
 
 from core.deps import get_task_service
-from schemas.tasks import TaskResponse, TaskRequest
+from schemas.tasks import TaskRequest, TaskResponse, TaskStatusUpdateRequest
 from services.task_service import TaskService
 
 router = APIRouter(tags=["Tasks"])
@@ -46,6 +46,21 @@ async def update_task(
     service: TaskService = Depends(get_task_service)
 ):
     return service.update_task(task_id, user.id, body)
+
+
+@router.patch(
+    "/tasks/{task_id}/status",
+    response_model=TaskResponse,
+    summary="Update task status",
+    description="Mark a task open or completed.",
+)
+async def update_task_status(
+    task_id: int,
+    body: TaskStatusUpdateRequest,
+    user: Annotated[dict, Depends(get_current_user)],
+    service: TaskService = Depends(get_task_service),
+):
+    return service.update_status(task_id, user.id, body.status)
 
 @router.delete(
     "/tasks/{task_id}",

@@ -21,6 +21,8 @@ It is designed to work with the React frontend:
 - Teacher-assigned tasks
 - Teacher-assigned tasks store internal teacher-student ownership data
 - Start and end timed practice sessions
+- Multi-task practice sessions with one current task at a time
+- Explicit open/completed task lifecycle with task reopening
 - Active practice session lookup
 - Session history
 - Teacher endpoint for listing assigned students
@@ -106,9 +108,16 @@ The main tables are:
 - `users`
 - `tasks`
 - `sessions`
+- `session_tasks`
 - `teacher_student_links`
 
 Teacher-student links control which students a teacher can access. Teacher-assigned tasks can also store a `teacher_student_link_id`, allowing the frontend to distinguish teacher-assigned tasks from student-created tasks. SQLAlchemy is used for model definitions, relationships, and database queries.
+
+On startup, the backend runs an idempotent schema upgrade that adds the
+multi-task session columns, creates `session_tasks`, and backfills existing
+sessions from their legacy `task_id` ownership. Back up the production
+database before the first deployment of this version and verify the migration
+through the health endpoint and session history before switching the frontend.
 
 ## Main endpoints
 
@@ -134,16 +143,24 @@ GET    /api/v1/tasks
 POST   /api/v1/tasks
 PUT    /api/v1/tasks/{task_id}
 DELETE /api/v1/tasks/{task_id}
+PATCH  /api/v1/tasks/{task_id}/status
 ```
 
 ### Practice sessions
 
 ```txt
-POST /api/v1/sessions/start/{task_id}
-POST /api/v1/sessions/end/{task_id}
+POST /api/v1/sessions/start
+POST /api/v1/sessions/{session_id}/current-task
+DELETE /api/v1/sessions/{session_id}/current-task
+POST /api/v1/sessions/{session_id}/end
 GET  /api/v1/sessions
 GET  /api/v1/sessions/active
+GET  /api/v1/sessions/{session_id}
 DELETE /api/v1/sessions/{session_id}
+
+# Temporary compatibility routes for the pre-migration frontend
+POST /api/v1/sessions/start/{task_id}
+POST /api/v1/sessions/end/{task_id}
 ```
 
 ### Teacher
@@ -187,9 +204,6 @@ Students can create tasks, complete teacher-assigned tasks, and log timed practi
 
 ## Planned improvements
 
-- Multiple tasks within a single practice session
-- Alembic migrations
-- Expanded automated tests
 - More detailed progress analytics
 - Refresh-token support
 
