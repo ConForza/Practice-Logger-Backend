@@ -228,6 +228,60 @@ class PhaseThreeSessionTests(unittest.TestCase):
         ).json()[0]
         self.assertEqual(current_task["status"], "completed")
 
+    def test_legacy_end_prefers_current_task_after_switching(self):
+        original_task = self.create_task("Legacy original task")
+        switched_task = self.create_task("Legacy switched task")
+        started = self.client.post(
+            f"/api/v1/sessions/start/{original_task['id']}",
+            headers=self.headers,
+        )
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["id"]
+
+        with TEST_SESSION_LOCAL() as db:
+            session = db.get(SessionDB, session_id)
+            old_start = datetime.now() - timedelta(minutes=2)
+            session.timestamp = old_start
+            session.started_at = old_start
+            db.commit()
+
+        switched = self.client.post(
+            f"/api/v1/sessions/{session_id}/current-task",
+            json={"task_id": switched_task["id"]},
+            headers=self.headers,
+        )
+        self.assertEqual(switched.status_code, 200, switched.text)
+
+        wrong_task_end = self.client.post(
+            f"/api/v1/sessions/end/{original_task['id']}",
+            json={"notes": "Should not end switched session"},
+            headers=self.headers,
+        )
+        self.assertEqual(wrong_task_end.status_code, 404, wrong_task_end.text)
+
+        active = self.client.get(
+            "/api/v1/sessions/active",
+            headers=self.headers,
+        )
+        self.assertEqual(active.status_code, 200)
+        self.assertEqual(active.json()["id"], session_id)
+        self.assertEqual(
+            active.json()["current_task_id"], switched_task["id"]
+        )
+
+        ended = self.client.post(
+            f"/api/v1/sessions/end/{switched_task['id']}",
+            json={"notes": "End switched task"},
+            headers=self.headers,
+        )
+        self.assertEqual(ended.status_code, 200, ended.text)
+        self.assertEqual(ended.json()["task_id"], switched_task["id"])
+
+        tasks = self.client.get("/api/v1/tasks", headers=self.headers).json()
+        statuses = {task["id"]: task["status"] for task in tasks}
+        self.assertEqual(statuses[original_task["id"]], "open")
+        self.assertEqual(statuses[switched_task["id"]], "completed")
+
     def test_start_can_optionally_select_an_initial_task(self):
         task = self.create_task("Initial task")
         started = self.client.post(

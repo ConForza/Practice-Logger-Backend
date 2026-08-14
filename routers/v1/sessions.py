@@ -1,7 +1,6 @@
-from datetime import datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from core.auth import get_current_user
 from core.deps import (
@@ -22,22 +21,6 @@ from services.session_service import SessionService
 from services.task_service import TaskService
 
 router = APIRouter(tags=["Sessions"])
-
-
-def calculate_streak(
-    user: Annotated[dict, Depends(get_current_user)],
-    session_repo: SessionRepository = Depends(get_session_repository),
-):
-    streak = 0
-    date_to_compare = datetime.today().date()
-    sessions = session_repo.get_all_sessions(user)
-    for session in sessions:
-        if session.start_time.date() == date_to_compare:
-            streak += 1
-        else:
-            break
-        date_to_compare = datetime.today().date() - timedelta(days=1)
-    return streak
 
 
 @router.post(
@@ -135,14 +118,11 @@ async def end_practice(
 async def end_session_legacy(
     task_id: int,
     body: EndSessionRequest,
-    background_tasks: BackgroundTasks,
     user: Annotated[dict, Depends(get_current_user)],
     session_service: SessionService = Depends(get_session_service),
     task_service: TaskService = Depends(get_task_service),
-    session_repo: SessionRepository = Depends(get_session_repository),
 ):
     task = task_service.get_task_by_id(task_id, user.id)
-    background_tasks.add_task(calculate_streak, user, session_repo)
     return session_service.end_legacy_session(task, user, body.notes)
 
 
