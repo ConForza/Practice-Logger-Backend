@@ -44,3 +44,13 @@ class TaskService:
 
     def create_task(self, body, user_id: int):
         return self.task_repo.create_task(body, user_id)
+
+    def update_status(self, task_id: int, user_id: int, status_value: str):
+        task = self.task_repo.update_task_status(
+            task_id=task_id,
+            user_id=user_id,
+            status=status_value,
+        )
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return task

@@ -1,12 +1,13 @@
 from fastapi import FastAPI
 from db.database import engine
 from db import models
+from db.migrations import initialize_database
 from routers.v1 import tasks, sessions, auth, teacher, admin
 from core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
 
 
-models.Base.metadata.create_all(bind=engine)
+initialize_database(engine)
 
 router_prefix = "/api/v1"
 app = FastAPI()

@@ -1,57 +1,52 @@
+from datetime import datetime
+
+from sqlalchemy import update
 from sqlalchemy.orm import Session
-from db.models import TaskDB, SessionDB
+
+from db.models import SessionDB, SessionTaskDB, TaskDB
 from schemas.tasks import TaskResponse
 
 
 class TaskRepository:
-
     def __init__(self, db: Session):
         self.db = db
 
+    @staticmethod
+    def _to_response(row: TaskDB) -> TaskResponse:
+        return TaskResponse(
+            id=row.id,
+            title=row.title,
+            description=row.description,
+            status=row.status,
+            user_id=row.user_id,
+            teacher_student_link_id=row.teacher_student_link_id,
+            completed_at=row.completed_at,
+        )
+
     def get_all_tasks(self, user_id: int, limit: int = 10) -> list[TaskResponse]:
-        tasks = []
-        query = self.db.query(TaskDB)
         rows = (
-            query.filter(TaskDB.user_id == user_id)
+            self.db.query(TaskDB)
+            .filter(TaskDB.user_id == user_id)
             .order_by(TaskDB.id.desc())
             .limit(limit)
             .all()
         )
-        for row in rows:
-            tasks.append(
-                TaskResponse(
-                    id=row.id,
-                    title=row.title,
-                    description=row.description,
-                    status=row.status,
-                    user_id=row.user_id,
-                    teacher_student_link_id=row.teacher_student_link_id,
-                )
-            )
-        return tasks
+        return [self._to_response(row) for row in rows]
 
     def update_task(self, task_id: int, user_id: int, task_request):
         row = (
             self.db.query(TaskDB)
-            .filter(TaskDB.id == task_id)
-            .filter(TaskDB.user_id == user_id)
+            .filter(TaskDB.id == task_id, TaskDB.user_id == user_id)
             .first()
         )
-        if row:
-            row.title = task_request.title
-            row.description = task_request.description
+        if not row:
+            return None
 
-            self.db.commit()
-            self.db.refresh(row)
-
-            return TaskResponse(
-                id=row.id,
-                title=row.title,
-                description=row.description,
-                status=row.status,
-                user_id=row.user_id,
-            )
-        return None
+        row.title = task_request.title
+        row.description = task_request.description
+        self.db.commit()
+        self.db.refresh(row)
+        return self._to_response(row)
 
     def delete_task(self, task_id: int, user_id: int):
         task = (
@@ -64,64 +59,76 @@ class TaskRepository:
             return None
 
         has_sessions = (
-                self.db.query(SessionDB)
-                .filter(SessionDB.task_id == task_id)
-                .first()
-                is not None
+            self.db.query(SessionDB)
+            .filter(
+                (SessionDB.task_id == task_id)
+                | (SessionDB.current_task_id == task_id)
+            )
+            .first()
+            is not None
         )
-
-        if has_sessions:
+        has_joined_sessions = (
+            self.db.query(SessionTaskDB)
+            .filter(SessionTaskDB.task_id == task_id)
+            .first()
+            is not None
+        )
+        if has_sessions or has_joined_sessions:
             raise ValueError("Cannot delete a task with practice sessions")
 
         self.db.delete(task)
         self.db.commit()
-
         return task_id
 
     def get_task_by_id(self, task_id: int, user_id: int):
         row = (
             self.db.query(TaskDB)
-            .filter(TaskDB.id == task_id)
-            .filter(TaskDB.user_id == user_id)
+            .filter(TaskDB.id == task_id, TaskDB.user_id == user_id)
             .first()
         )
-        if not row:
-            return None
-        return TaskResponse(
-            id=row.id,
-            title=row.title,
-            description=row.description,
-            status=row.status,
-            user_id=row.user_id,
-        )
+        return self._to_response(row) if row else None
 
-    def create_task(self, body, user_id: int, teacher_student_link_id: int | None = None):
+    def create_task(
+        self,
+        body,
+        user_id: int,
+        teacher_student_link_id: int | None = None,
+    ):
         db_task = TaskDB(
             title=body.title,
             description=body.description,
-            status="pending",
+            status="open",
+            completed_at=None,
             user_id=user_id,
             teacher_student_link_id=teacher_student_link_id,
         )
         self.db.add(db_task)
         self.db.commit()
         self.db.refresh(db_task)
+        return self._to_response(db_task)
 
-        return TaskResponse(
-            id=db_task.id,
-            title=db_task.title,
-            description=db_task.description,
-            status=db_task.status,
-            user_id=db_task.user_id,
-        )
-
-    def update_task_status(self, task_id: int, status: str):
+    def update_task_status(self, task_id: int, user_id: int, status: str):
         row = (
             self.db.query(TaskDB)
-            .filter(TaskDB.id == task_id)
+            .filter(TaskDB.id == task_id, TaskDB.user_id == user_id)
             .first()
         )
+        if not row:
+            return None
 
         row.status = status
+        row.completed_at = datetime.now() if status == "completed" else None
+
+        if status == "completed":
+            self.db.execute(
+                update(SessionDB)
+                .where(
+                    SessionDB.current_task_id == task_id,
+                    SessionDB.ended_at.is_(None),
+                )
+                .values(current_task_id=None)
+            )
+
         self.db.commit()
         self.db.refresh(row)
+        return self._to_response(row)

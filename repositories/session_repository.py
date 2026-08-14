@@ -1,20 +1,26 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from db.models import SessionDB, TaskDB, UserDB, TeacherStudentLinkDB
 from datetime import datetime, timedelta
 
-from schemas.sessions import StartSessionResponse, EndSessionResponse, PracticeSession
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session
+
+from db.models import (
+    SessionDB,
+    SessionTaskDB,
+    TaskDB,
+    TeacherStudentLinkDB,
+    UserDB,
+)
+from schemas.sessions import PracticeSession, SessionTask
 from schemas.teacher import WeeklyStudentProgress
 
-class SessionRepository:
 
+class SessionRepository:
     def __init__(self, db: Session):
         self.db = db
 
     def get_week_start(self):
         today = datetime.now()
         start_of_week = today - timedelta(days=today.weekday())
-
         return start_of_week.replace(
             hour=0,
             minute=0,
@@ -22,165 +28,220 @@ class SessionRepository:
             microsecond=0,
         )
 
-    def start_session(self, task):
-        db_session = SessionDB(
-            task_id=task.id,
-            timestamp=datetime.now(),
-            duration=0,
+    def _tasks_for_session(self, session_id: int) -> list[TaskDB]:
+        return (
+            self.db.query(TaskDB)
+            .join(SessionTaskDB, SessionTaskDB.task_id == TaskDB.id)
+            .filter(SessionTaskDB.session_id == session_id)
+            .order_by(SessionTaskDB.id.asc())
+            .all()
         )
 
+    def _to_response(self, session: SessionDB) -> PracticeSession:
+        tasks = self._tasks_for_session(session.id)
+        task_by_id = {task.id: task for task in tasks}
+        current_task = task_by_id.get(session.current_task_id)
+        compatibility_task = current_task or task_by_id.get(session.task_id)
+        if compatibility_task is None and tasks:
+            compatibility_task = tasks[0]
+
+        started_at = session.started_at or session.timestamp
+        return PracticeSession(
+            id=session.id,
+            user_id=session.user_id or 0,
+            started_at=started_at,
+            ended_at=session.ended_at,
+            duration=session.duration,
+            notes=session.notes,
+            current_task_id=session.current_task_id,
+            tasks=[
+                SessionTask(
+                    id=task.id,
+                    title=task.title,
+                    description=task.description,
+                    status=task.status,
+                )
+                for task in tasks
+            ],
+            status="active" if session.ended_at is None else "completed",
+            start_time=started_at,
+            task_id=compatibility_task.id if compatibility_task else None,
+            title=compatibility_task.title if compatibility_task else None,
+        )
+
+    def start_session(self, user, task=None) -> PracticeSession:
+        now = datetime.now()
+        db_session = SessionDB(
+            user_id=user.id,
+            timestamp=now,
+            started_at=now,
+            duration=0,
+            task_id=task.id if task else None,
+            current_task_id=task.id if task else None,
+        )
         self.db.add(db_session)
+        self.db.flush()
+
+        if task:
+            self.db.add(
+                SessionTaskDB(
+                    session_id=db_session.id,
+                    task_id=task.id,
+                )
+            )
+
         self.db.commit()
         self.db.refresh(db_session)
-        return StartSessionResponse(
-            id=db_session.id,
-            title=task.title,
-            task_id=db_session.task_id,
-            start_time=db_session.timestamp,
-        )
+        return self._to_response(db_session)
 
-    def get_session_by_task_id(self, task_id):
-        session = self.db.query(SessionDB).filter(SessionDB.task_id == task_id).first()
-        if session is None:
-            return None
-        return session
-
-    def end_session(self, task, duration, notes: str | None = None):
-        session, task = (
-            self.db.query(SessionDB, TaskDB).join(TaskDB, SessionDB.task_id == TaskDB.id)
-            .filter(SessionDB.task_id == task.id)
+    def get_session_by_id(self, session_id: int, user_id: int):
+        return (
+            self.db.query(SessionDB)
+            .filter(SessionDB.id == session_id, SessionDB.user_id == user_id)
             .first()
         )
 
-        session.duration = duration
+    def get_session_by_task_id(self, task_id: int, user_id: int):
+        return (
+            self.db.query(SessionDB)
+            .filter(
+                SessionDB.user_id == user_id,
+                or_(
+                    SessionDB.task_id == task_id,
+                    SessionDB.current_task_id == task_id,
+                ),
+                SessionDB.ended_at.is_(None),
+            )
+            .order_by(SessionDB.started_at.desc(), SessionDB.timestamp.desc())
+            .first()
+        )
 
-        if notes:
+    def get_active_session(self, user) -> PracticeSession | None:
+        session = (
+            self.db.query(SessionDB)
+            .filter(
+                SessionDB.user_id == user.id,
+                SessionDB.ended_at.is_(None),
+            )
+            .order_by(SessionDB.started_at.desc(), SessionDB.timestamp.desc())
+            .first()
+        )
+        return self._to_response(session) if session else None
+
+    def set_current_task(self, session: SessionDB, task):
+        existing_link = (
+            self.db.query(SessionTaskDB)
+            .filter(
+                SessionTaskDB.session_id == session.id,
+                SessionTaskDB.task_id == task.id,
+            )
+            .first()
+        )
+        if existing_link is None:
+            self.db.add(
+                SessionTaskDB(session_id=session.id, task_id=task.id)
+            )
+
+        session.current_task_id = task.id
+        if session.task_id is None:
+            session.task_id = task.id
+
+        self.db.commit()
+        self.db.refresh(session)
+        return self._to_response(session)
+
+    def clear_current_task(self, session: SessionDB):
+        session.current_task_id = None
+        self.db.commit()
+        self.db.refresh(session)
+        return self._to_response(session)
+
+    def end_session(
+        self,
+        session: SessionDB,
+        duration: int,
+        notes: str | None = None,
+    ) -> PracticeSession:
+        session.duration = duration
+        session.ended_at = datetime.now()
+        session.current_task_id = None
+        if notes is not None:
             session.notes = notes
 
         self.db.commit()
         self.db.refresh(session)
+        return self._to_response(session)
 
-        return EndSessionResponse(
-            id=session.id,
-            title=task.title,
-            duration=session.duration,
-            notes=session.notes,
-            start_time=session.timestamp,
-            task_id=session.task_id,
-        )
-
-    def get_active_session(self, user):
-        result = (
-            self.db.query(SessionDB, TaskDB)
-            .join(TaskDB, SessionDB.task_id == TaskDB.id)
-            .filter(TaskDB.user_id == user.id)
-            .filter(TaskDB.status == "in progress")
-            .order_by(SessionDB.timestamp.desc())
-            .first()
-        )
-
-        if result is None:
+    def delete_session(self, session_id: int, user):
+        session = self.get_session_by_id(session_id, user.id)
+        if not session:
             return None
 
-        session, task = result
-
-        return StartSessionResponse(
-            id=session.id,
-            task_id=session.task_id,
-            title=task.title,
-            start_time=session.timestamp,
-            status="in progress",
-            )
-
-    def delete_session(self, session_id, user):
-        query = self.db.query(SessionDB)
-        session = (
-            query.join(TaskDB, SessionDB.task_id == TaskDB.id)
-            .filter(TaskDB.user_id == user.id)
-            .filter(SessionDB.id == session_id)
-            .first()
-        )
-        if session:
-            self.db.delete(session)
-            self.db.commit()
-            return session.id
-        return None
+        self.db.query(SessionTaskDB).filter(
+            SessionTaskDB.session_id == session.id
+        ).delete(synchronize_session=False)
+        self.db.delete(session)
+        self.db.commit()
+        return session.id
 
     def get_all_sessions(self, user, limit: int = 10):
-        sessions = []
-        query = self.db.query(SessionDB, TaskDB)
-        rows = (
-            query.join(TaskDB, SessionDB.task_id == TaskDB.id)
-            .filter(TaskDB.user_id == user.id)
-            .order_by(SessionDB.timestamp.desc())
+        sessions = (
+            self.db.query(SessionDB)
+            .filter(SessionDB.user_id == user.id)
+            .order_by(
+                SessionDB.started_at.desc(),
+                SessionDB.timestamp.desc(),
+            )
             .limit(limit)
             .all()
         )
-        for session, task in rows:
-            sessions.append(
-                EndSessionResponse(
-                    id=session.id,
-                    title=task.title,
-                    duration=session.duration,
-                    notes=session.notes,
-                    start_time=session.timestamp,
-                    task_id=session.task_id,
-                )
-            )
-        return sessions
+        return [self._to_response(session) for session in sessions]
 
     def get_sessions_by_user_id(self, user_id: int):
-        sessions = []
-
-        query = self.db.query(SessionDB)
-        rows = (
-            query.join(TaskDB, SessionDB.task_id == TaskDB.id)
-            .filter(TaskDB.user_id == user_id)
-            .order_by(SessionDB.timestamp.desc())
+        sessions = (
+            self.db.query(SessionDB)
+            .filter(SessionDB.user_id == user_id)
+            .order_by(
+                SessionDB.started_at.desc(),
+                SessionDB.timestamp.desc(),
+            )
             .all()
         )
-
-        for row in rows:
-            sessions.append(
-                PracticeSession(
-                    id=row.id,
-                    duration=row.duration,
-                    notes=row.notes,
-                    start_time=row.timestamp,
-                    task_id=row.task_id,
-                )
-            )
-
-        return sessions
+        return [self._to_response(session) for session in sessions]
 
     def get_weekly_student_progress(self, teacher_id: int):
         week_start = self.get_week_start()
+        assigned_student_ids = (
+            select(TeacherStudentLinkDB.student_id)
+            .filter(TeacherStudentLinkDB.teacher_id == teacher_id)
+            .distinct()
+        )
+        session_start = func.coalesce(SessionDB.started_at, SessionDB.timestamp)
 
         rows = (
             self.db.query(
                 UserDB.id.label("student_id"),
                 UserDB.email.label("email"),
-                func.coalesce(func.sum(SessionDB.duration), 0).label("total_duration"),
+                func.coalesce(func.sum(SessionDB.duration), 0).label(
+                    "total_duration"
+                ),
                 func.count(SessionDB.id).label("session_count"),
             )
-            .join(
-                TeacherStudentLinkDB,
-                TeacherStudentLinkDB.student_id == UserDB.id,
-            )
-            .outerjoin(
-                TaskDB,
-                TaskDB.user_id == UserDB.id,
-            )
-            .outerjoin(
-                SessionDB,
-                (SessionDB.task_id == TaskDB.id)
-                & (SessionDB.timestamp >= week_start),
-            )
-            .filter(TeacherStudentLinkDB.teacher_id == teacher_id)
+            .outerjoin(SessionDB, SessionDB.user_id == UserDB.id)
+            .filter(UserDB.id.in_(assigned_student_ids))
             .filter(UserDB.role == "student")
             .filter(UserDB.is_active == True)
+            .filter(
+                or_(
+                    SessionDB.id.is_(None),
+                    session_start >= week_start,
+                )
+            )
             .group_by(UserDB.id, UserDB.email)
-            .order_by(func.coalesce(func.sum(SessionDB.duration), 0).desc())
+            .order_by(
+                func.coalesce(func.sum(SessionDB.duration), 0).desc(),
+                UserDB.email.asc(),
+            )
             .all()
         )
 
