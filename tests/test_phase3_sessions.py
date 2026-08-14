@@ -306,6 +306,61 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(progress[0].total_duration, 27)
         self.assertEqual(progress[0].session_count, 2)
 
+    def test_teacher_progress_includes_assigned_student_with_no_current_week_sessions(self):
+        now = datetime.now()
+        with TEST_SESSION_LOCAL() as db:
+            teacher = UserDB(
+                email="teacher-no-current-week@example.com",
+                hashed_password="x",
+                is_active=True,
+                role="teacher",
+            )
+            student = UserDB(
+                email="student-no-current-week@example.com",
+                hashed_password="x",
+                is_active=True,
+                role="student",
+            )
+            db.add_all([teacher, student])
+            db.flush()
+            db.add(
+                TeacherStudentLinkDB(
+                    teacher_id=teacher.id,
+                    student_id=student.id,
+                    instrument="Piano",
+                )
+            )
+            task = TaskDB(
+                title="Older task",
+                status="open",
+                user_id=student.id,
+            )
+            db.add(task)
+            db.flush()
+            old_start = now - timedelta(days=14)
+            db.add(
+                SessionDB(
+                    user_id=student.id,
+                    task_id=task.id,
+                    current_task_id=None,
+                    timestamp=old_start,
+                    started_at=old_start,
+                    ended_at=old_start + timedelta(minutes=15),
+                    duration=15,
+                )
+            )
+            student_id = student.id
+            db.commit()
+
+            progress = SessionRepository(db).get_weekly_student_progress(
+                teacher.id
+            )
+
+        self.assertEqual(len(progress), 1)
+        self.assertEqual(progress[0].student_id, student_id)
+        self.assertEqual(progress[0].total_duration, 0)
+        self.assertEqual(progress[0].session_count, 0)
+
     def test_students_cannot_use_or_update_another_students_task(self):
         other_headers, _ = self.register_and_login(
             "other-student@example.com"

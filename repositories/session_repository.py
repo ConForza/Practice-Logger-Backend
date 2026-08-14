@@ -227,16 +227,14 @@ class SessionRepository:
                 ),
                 func.count(SessionDB.id).label("session_count"),
             )
-            .outerjoin(SessionDB, SessionDB.user_id == UserDB.id)
+            .outerjoin(
+                SessionDB,
+                (SessionDB.user_id == UserDB.id)
+                & (session_start >= week_start),
+            )
             .filter(UserDB.id.in_(assigned_student_ids))
             .filter(UserDB.role == "student")
             .filter(UserDB.is_active == True)
-            .filter(
-                or_(
-                    SessionDB.id.is_(None),
-                    session_start >= week_start,
-                )
-            )
             .group_by(UserDB.id, UserDB.email)
             .order_by(
                 func.coalesce(func.sum(SessionDB.duration), 0).desc(),
