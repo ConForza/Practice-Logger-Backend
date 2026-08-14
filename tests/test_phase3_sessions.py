@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 os.environ.setdefault("JWT_SECRET_KEY", "phase-three-test-secret-key")
 
@@ -79,6 +79,13 @@ class PhaseThreeSessionTests(unittest.TestCase):
     def tearDown(self):
         self.client.close()
 
+    def assert_explicit_utc(self, value: str, expected: datetime | None = None):
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        self.assertIsNotNone(parsed.tzinfo)
+        self.assertEqual(parsed.utcoffset(), timedelta(0))
+        if expected is not None:
+            self.assertEqual(parsed, expected.replace(tzinfo=timezone.utc))
+
     def create_task(self, title: str):
         response = self.client.post(
             "/api/v1/tasks",
@@ -117,10 +124,8 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(started.status_code, 200, started.text)
         session_id = started.json()["id"]
         started_at = started.json()["started_at"]
-        self.assertTrue(started_at.endswith(("Z", "+00:00")))
-        self.assertTrue(
-            started.json()["start_time"].endswith(("Z", "+00:00"))
-        )
+        self.assert_explicit_utc(started_at)
+        self.assert_explicit_utc(started.json()["start_time"])
         self.assertIsNone(started.json()["current_task_id"])
 
         with TEST_SESSION_LOCAL() as db:
@@ -190,12 +195,8 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(ended.status_code, 200, ended.text)
         self.assertEqual(ended.json()["status"], "completed")
         self.assertEqual(ended.json()["duration"], 0)
-        self.assertTrue(
-            ended.json()["ended_at"].endswith(("Z", "+00:00"))
-        )
-        self.assertTrue(
-            ended.json()["start_time"].endswith(("Z", "+00:00"))
-        )
+        self.assert_explicit_utc(ended.json()["ended_at"])
+        self.assert_explicit_utc(ended.json()["start_time"])
 
         with TEST_SESSION_LOCAL() as db:
             stored = db.get(SessionDB, session_id)
@@ -239,15 +240,11 @@ class PhaseThreeSessionTests(unittest.TestCase):
         history = self.client.get("/api/v1/sessions", headers=self.headers)
         self.assertEqual(history.status_code, 200, history.text)
         session_json = history.json()[0]
-        self.assertEqual(
-            session_json["started_at"], "2026-08-14T17:37:01.123456Z"
+        self.assert_explicit_utc(
+            session_json["started_at"], legacy_started
         )
-        self.assertEqual(
-            session_json["start_time"], "2026-08-14T17:37:01.123456Z"
-        )
-        self.assertEqual(
-            session_json["ended_at"], "2026-08-14T17:39:01.123456Z"
-        )
+        self.assert_explicit_utc(session_json["start_time"], legacy_started)
+        self.assert_explicit_utc(session_json["ended_at"], legacy_ended)
 
         ended = self.client.post(
             f"/api/v1/sessions/{session_id}/end",
@@ -378,7 +375,7 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(ended.status_code, 200, ended.text)
 
     def test_teacher_progress_uses_session_owner(self):
-        now = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         with TEST_SESSION_LOCAL() as db:
             teacher = UserDB(
                 email="teacher@example.com",
@@ -439,7 +436,7 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(progress[0].session_count, 2)
 
     def test_teacher_progress_includes_assigned_student_with_no_current_week_sessions(self):
-        now = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         with TEST_SESSION_LOCAL() as db:
             teacher = UserDB(
                 email="teacher-no-current-week@example.com",
@@ -492,6 +489,116 @@ class PhaseThreeSessionTests(unittest.TestCase):
         self.assertEqual(progress[0].student_id, student_id)
         self.assertEqual(progress[0].total_duration, 0)
         self.assertEqual(progress[0].session_count, 0)
+
+    def test_teacher_progress_uses_naive_utc_week_boundary(self):
+        fixed_now = datetime(2026, 8, 12, 15, 30)
+        expected_week_start = datetime(2026, 8, 10)
+        with TEST_SESSION_LOCAL() as db:
+            teacher = UserDB(
+                email="teacher-week-boundary@example.com",
+                hashed_password="x",
+                is_active=True,
+                role="teacher",
+            )
+            current_student = UserDB(
+                email="current-week@example.com",
+                hashed_password="x",
+                is_active=True,
+                role="student",
+            )
+            zero_student = UserDB(
+                email="zero-week@example.com",
+                hashed_password="x",
+                is_active=True,
+                role="student",
+            )
+            unassigned_student = UserDB(
+                email="unassigned-week@example.com",
+                hashed_password="x",
+                is_active=True,
+                role="student",
+            )
+            db.add_all([teacher, current_student, zero_student, unassigned_student])
+            db.flush()
+            db.add_all(
+                [
+                    TeacherStudentLinkDB(
+                        teacher_id=teacher.id,
+                        student_id=current_student.id,
+                        instrument="Piano",
+                    ),
+                    TeacherStudentLinkDB(
+                        teacher_id=teacher.id,
+                        student_id=zero_student.id,
+                        instrument="Violin",
+                    ),
+                ]
+            )
+            task = TaskDB(
+                title="Boundary task",
+                status="open",
+                user_id=current_student.id,
+            )
+            db.add(task)
+            db.flush()
+            current_student_id = current_student.id
+            zero_student_id = zero_student.id
+            db.add_all(
+                [
+                    SessionDB(
+                        user_id=current_student.id,
+                        task_id=task.id,
+                        timestamp=expected_week_start,
+                        started_at=expected_week_start,
+                        ended_at=expected_week_start + timedelta(minutes=25),
+                        duration=25,
+                    ),
+                    SessionDB(
+                        user_id=current_student.id,
+                        task_id=task.id,
+                        timestamp=expected_week_start - timedelta(minutes=1),
+                        started_at=expected_week_start - timedelta(minutes=1),
+                        ended_at=expected_week_start,
+                        duration=99,
+                    ),
+                    SessionDB(
+                        user_id=zero_student.id,
+                        task_id=None,
+                        timestamp=expected_week_start - timedelta(days=1),
+                        started_at=expected_week_start - timedelta(days=1),
+                        ended_at=expected_week_start - timedelta(days=1),
+                        duration=45,
+                    ),
+                    SessionDB(
+                        user_id=unassigned_student.id,
+                        task_id=None,
+                        timestamp=fixed_now,
+                        started_at=fixed_now,
+                        ended_at=fixed_now,
+                        duration=77,
+                    ),
+                ]
+            )
+            db.commit()
+
+            repository = SessionRepository(db)
+            with patch(
+                "repositories.session_repository.utc_now_naive",
+                return_value=fixed_now,
+            ):
+                week_start = repository.get_week_start()
+                progress = repository.get_weekly_student_progress(teacher.id)
+
+        self.assertEqual(week_start, expected_week_start)
+        self.assertIsNone(week_start.tzinfo)
+        by_student = {row.student_id: row for row in progress}
+        self.assertEqual(
+            set(by_student), {current_student_id, zero_student_id}
+        )
+        self.assertEqual(by_student[current_student_id].total_duration, 25)
+        self.assertEqual(by_student[current_student_id].session_count, 1)
+        self.assertEqual(by_student[zero_student_id].total_duration, 0)
+        self.assertEqual(by_student[zero_student_id].session_count, 0)
 
     def test_students_cannot_use_or_update_another_students_task(self):
         other_headers, _ = self.register_and_login(
